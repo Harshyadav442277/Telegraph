@@ -18,7 +18,7 @@ import {
 import { toTelegraphResponse } from '../telegraph/response.js';
 import { verifyTLS } from '../tls/verify.js';
 import type { TLSVerificationOptions } from '../tls/types.js';
-import { chainFromText, resolveChain } from '../chain/rpc.js';
+import { chainFromText, lookupChain, resolveChain, SUPPORTED_CHAINS } from '../chain/rpc.js';
 import { resolveEnsName } from '../chain/ens.js';
 import { getGasPrice } from '../intents/gasPrice.js';
 import { getWalletBalance } from '../intents/walletBalance.js';
@@ -47,18 +47,31 @@ function tlsOptionsFrom(config: AppConfig): Partial<TLSVerificationOptions> {
   };
 }
 
+// An explicitly named chain we do not serve is an error, not a cue to answer
+// about Ethereum instead. A chain named only in free text is advisory, and a
+// question naming none at all defaults to Ethereum.
+function chainFor(values: RequestValues): ReturnType<typeof resolveChain> {
+  const named = findChain(values);
+  if (named) {
+    const found = lookupChain(named);
+    if (!found)
+      throw new TypeError(`unsupported chain: ${named}. PREFLIGHT serves ${SUPPORTED_CHAINS}.`);
+    return found;
+  }
+  return resolveChain(chainFromText(values.text())?.key);
+}
+
 const INTENT_ROUTES: Record<string, IntentRoute> = {
   '/gas-price': {
     intent: 'GAS_PRICE',
     handle: async (values) => {
-      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
-      return getGasPrice(chain);
+      return getGasPrice(chainFor(values));
     },
   },
   '/wallet-balance': {
     intent: 'WALLET_BALANCE_CHECK',
     handle: async (values) => {
-      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
+      const chain = chainFor(values);
       const address = findAddress(values);
       if (address) return getWalletBalance(address, chain);
       // The intent explicitly covers ENS names, which resolve on mainnet
@@ -80,8 +93,7 @@ const INTENT_ROUTES: Record<string, IntentRoute> = {
       const hash = findTxHash(values);
       if (!hash)
         throw new TypeError('missing required field: hash (a 0x-prefixed transaction hash)');
-      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
-      return lookupTransaction(hash, chain);
+      return lookupTransaction(hash, chainFor(values));
     },
   },
   '/url-scan': {

@@ -4,6 +4,7 @@ import {
   formatUnits,
   isAddress,
   isTxHash,
+  lookupChain,
   resolveChain,
 } from '../../src/chain/rpc.js';
 import { namehash } from '../../src/chain/ens.js';
@@ -115,5 +116,22 @@ describe('ENS', () => {
     expect(findEnsName(valuesFromQuery(q('q=how much does vitalik.eth hold')))).toBe('vitalik.eth');
     expect(findEnsName(valuesFromBody({ address: 'nick.eth' }))).toBe('nick.eth');
     expect(findEnsName(valuesFromQuery(q('q=check example.com')))).toBeUndefined();
+  });
+});
+
+describe('unsupported chains', () => {
+  it('resolves known names but reports unknown ones as unknown', () => {
+    expect(lookupChain('base')?.chainId).toBe(8453);
+    expect(lookupChain('arb')?.chainId).toBe(42_161);
+    // Silently defaulting these to Ethereum would answer a question that was
+    // never asked, e.g. "gas on Avalanche" quoting Ethereum's gas price.
+    expect(lookupChain('avalanche')).toBeUndefined();
+    expect(lookupChain('solana')).toBeUndefined();
+    expect(lookupChain('nonsense-chain')).toBeUndefined();
+    expect(lookupChain(undefined)).toBeUndefined();
+  });
+
+  it('still defaults to ethereum when no chain is named at all', () => {
+    expect(resolveChain(undefined).chainId).toBe(1);
   });
 });

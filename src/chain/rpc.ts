@@ -86,15 +86,30 @@ const CHAIN_ALIASES: Record<string, string> = {
   basesepolia: 'base-sepolia',
 };
 
-export function resolveChain(value: string | undefined): ChainInfo {
-  if (!value) return CHAINS.ethereum as ChainInfo;
+/** Resolves a chain name or alias, or undefined when it is not one we serve. */
+export function lookupChain(value: string | undefined): ChainInfo | undefined {
+  if (!value) return undefined;
   const key = value.trim().toLowerCase().replace(/\s+/g, '-');
   const direct = CHAINS[key];
   if (direct) return direct;
   const aliased = CHAIN_ALIASES[key];
   if (aliased && CHAINS[aliased]) return CHAINS[aliased];
-  return CHAINS.ethereum as ChainInfo;
+  return undefined;
 }
+
+/**
+ * Ethereum is the right default when a question names no chain at all, but
+ * silently defaulting a chain we do not serve would answer a question that was
+ * never asked — "gas on Avalanche" returning Ethereum's gas price. Callers
+ * that need to tell those cases apart use `lookupChain`.
+ */
+export function resolveChain(value: string | undefined): ChainInfo {
+  return lookupChain(value) ?? (CHAINS.ethereum as ChainInfo);
+}
+
+export const SUPPORTED_CHAINS = Object.values(CHAINS)
+  .map((c) => c.name)
+  .join(', ');
 
 /** Finds a chain named anywhere in free text, without defaulting. */
 export function chainFromText(text: string): ChainInfo | undefined {

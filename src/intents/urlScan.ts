@@ -273,20 +273,26 @@ export async function scanUrl(
   // refuses the response over an invalid certificate. Reporting that case as
   // "unreachable" would hide the security finding that actually matters.
   const observed = reachable || tlsHandshake;
-  const verdict: UrlScanResponse['verdict'] = !observed
-    ? 'unreachable'
-    : riskScore >= 50
+  // The intent asks for a URL to be judged safe or unsafe. Findings drawn from
+  // the URL itself — private or reserved address space, embedded credentials,
+  // a homograph host — are conclusive without fetching anything, so a
+  // confidently unsafe URL is reported as unsafe rather than as unreachable.
+  // "Unreachable" is reserved for the case where nothing could be determined.
+  const verdict: UrlScanResponse['verdict'] =
+    riskScore >= 50
       ? 'malicious'
-      : riskScore >= 20
-        ? 'suspicious'
-        : 'safe';
+      : !observed
+        ? 'unreachable'
+        : riskScore >= 20
+          ? 'suspicious'
+          : 'safe';
 
   const headline =
     verdict === 'unreachable'
       ? `The URL ${url.toString()} could not be retrieved and no TLS handshake completed, so no content or transport assessment could be made.`
       : verdict === 'safe'
         ? `The URL ${url.toString()} scanned clean with a risk score of ${riskScore} out of 100 and no significant risk indicators.`
-        : `The URL ${url.toString()} is ${verdict} with a risk score of ${riskScore} out of 100.`;
+        : `The URL ${url.toString()} is ${verdict} with a risk score of ${riskScore} out of 100${observed ? '' : ', judged from the URL itself without retrieving it'}.`;
 
   const tlsSentence =
     tlsValid === null

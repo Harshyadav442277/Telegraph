@@ -61,6 +61,37 @@ function daysRemaining(validTo: string | undefined, now: Date): number | null {
   return Math.floor((Date.parse(validTo) - now.getTime()) / 86_400_000);
 }
 
+function certificateContext(result: TLSVerificationResult, days: number | null): string {
+  const parts: string[] = [];
+  const cert = result.certificate;
+  if (cert?.subject) parts.push(`The certificate was issued to ${cert.subject}`);
+  if (cert?.issuer) parts.push(`by ${cert.issuer}`);
+  const from = dateOnly(cert?.validFrom);
+  const to = dateOnly(cert?.validTo);
+  if (from && to) parts.push(`and is valid from ${from} to ${to}`);
+  else if (to) parts.push(`and is valid until ${to}`);
+  const window = parts.length > 0 ? `${parts.join(' ')}.` : '';
+  const remaining =
+    days === null
+      ? ''
+      : days < 0
+        ? ` It expired ${Math.abs(days)} days ago.`
+        : ` It has ${days} days remaining.`;
+  const chain = cert?.chainComplete
+    ? ` The server presented a complete chain of ${cert.chainLength ?? 'multiple'} certificates including intermediates.`
+    : cert?.chainLength
+      ? ` The server presented ${cert.chainLength} certificate(s) without a complete intermediate chain.`
+      : '';
+  const names = cert?.subjectAltNames?.length
+    ? ` Subject Alternative Names present: ${cert.subjectAltNames.join(', ')}.`
+    : '';
+  const protocol = result.tlsProtocol ? ` The connection negotiated ${result.tlsProtocol}` : '';
+  const cipher = result.cipher ? ` with cipher suite ${result.cipher}` : '';
+  const keyBits = result.keyBits ? ` and a ${result.keyBits}-bit key` : '';
+  const connection = protocol ? `${protocol}${cipher}${keyBits}.` : '';
+  return `${window}${remaining}${chain}${names}${connection}`;
+}
+
 function reasonFor(
   result: TLSVerificationResult,
   verdict: LiveCertResponse['verdict'],
@@ -68,24 +99,27 @@ function reasonFor(
 ): string {
   const domain = result.normalizedHost || result.input;
   if (verdict === 'unreachable')
-    return `The TLS/SSL endpoint for ${domain} could not be reached (${result.failureCode}). ${result.failureMessage ?? 'No further connection details were available.'}`;
-  if (verdict === 'expired') return `The TLS/SSL certificate for ${domain} is expired.`;
-  if (verdict === 'not_yet_valid') return `The TLS/SSL certificate for ${domain} is not yet valid.`;
+    return `The TLS/SSL endpoint for ${domain} could not be reached and no certificate could be observed (${result.failureCode}). ${result.failureMessage ?? 'No further connection details were available.'} Because the TLS handshake did not complete, certificate validity, chain trust and hostname verification could not be evaluated for ${domain}.`;
+
+  const context = certificateContext(result, days);
+  if (verdict === 'expired')
+    return `The TLS/SSL certificate for ${domain} is expired and is therefore not valid. ${context} Chain trust and hostname verification cannot compensate for an expired validity period.`;
+  if (verdict === 'not_yet_valid')
+    return `The TLS/SSL certificate for ${domain} is not yet valid, because its validity period begins in the future. ${context} A client validating ${domain} today will reject this certificate.`;
   if (verdict === 'hostname_mismatch')
-    return `The TLS/SSL certificate presented by ${domain} does not match the requested hostname.`;
+    return `The TLS/SSL certificate presented by ${domain} does not match the requested hostname, so hostname verification fails. ${context} The certificate itself may be well-formed, but it is not valid for ${domain}.`;
   if (verdict === 'self_signed')
-    return `The TLS/SSL certificate for ${domain} is self-signed and is not trusted.`;
-  if (verdict === 'untrusted') {
-    const issuer = result.certificate?.issuer ? `, issued by ${result.certificate.issuer}` : '';
-    return `The TLS/SSL certificate for ${domain} is not trusted${issuer}. The presented certificate chain does not build to a trusted root.`;
-  }
+    return `The TLS/SSL certificate for ${domain} is self-signed and is not trusted, because it does not chain to a trusted certificate authority. ${context} A client validating ${domain} will reject this certificate as untrusted.`;
+  if (verdict === 'untrusted')
+    return `The TLS/SSL certificate for ${domain} is not trusted, because the presented certificate chain does not build to a trusted root certificate authority. ${context}`;
+
   const expiry =
     days === null
       ? 'with no readable expiry'
       : `expiring in ${days} days on ${dateOnly(result.certificate?.validTo)}`;
   const issuer = result.certificate?.issuer ? `, issued by ${result.certificate.issuer}` : '';
   const chain = result.certificate?.chainComplete
-    ? `The server presented a complete chain of ${result.certificate.chainLength ?? 'multiple'} certificates including intermediates.`
+    ? `The server presented a complete chain of ${result.certificate.chainLength ?? 'multiple'} certificates including intermediates, building a trusted path to a root.`
     : 'The server did not present a complete certificate chain.';
   const names = result.certificate?.subjectAltNames?.length
     ? ` against Subject Alternative Name ${result.certificate.subjectAltNames.join(', ')}`

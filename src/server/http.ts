@@ -1,6 +1,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { extractDomain, extractDomainFromQuery } from '../telegraph/request.js';
 import { toTelegraphResponse } from '../telegraph/response.js';
 import { verifyTLS } from '../tls/verify.js';
@@ -56,9 +58,29 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   }
 }
 
-export function createHttpServer(config: AppConfig): Server {
+// Bundled layouts differ between the container build (dist/server/) and the
+// serverless build, so the YAML is looked up relative to both.
+async function readMinerYaml(): Promise<string> {
+  const candidates = [
+    new URL('../../telegraph/miner.yaml', import.meta.url),
+    new URL('../../../telegraph/miner.yaml', import.meta.url),
+    pathToFileURL(resolve(process.cwd(), 'telegraph/miner.yaml')),
+  ];
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf8');
+    } catch {
+      continue;
+    }
+  }
+  throw new Error('miner.yaml not found');
+}
+
+export type RequestHandler = (request: IncomingMessage, response: ServerResponse) => Promise<void>;
+
+export function createRequestHandler(config: AppConfig): RequestHandler {
   const log = createLogger(config.logLevel);
-  const server = createServer(async (request, response) => {
+  return async (request, response) => {
     const id = requestId(request);
     const started = performance.now();
     const method = request.method ?? 'GET';
@@ -73,7 +95,7 @@ export function createHttpServer(config: AppConfig): Server {
         return;
       }
       if (method === 'GET' && url.pathname === '/miner.yaml') {
-        const yaml = await readFile(new URL('../../telegraph/miner.yaml', import.meta.url), 'utf8');
+        const yaml = await readMinerYaml();
         sendText(response, 200, yaml, 'application/yaml; charset=utf-8', id);
         return;
       }
@@ -140,6 +162,13 @@ export function createHttpServer(config: AppConfig): Server {
         id,
       );
     }
+  };
+}
+
+export function createHttpServer(config: AppConfig): Server {
+  const handler = createRequestHandler(config);
+  const server = createServer((request, response) => {
+    void handler(request, response);
   });
   server.keepAliveTimeout = 5_000;
   server.headersTimeout = 10_000;

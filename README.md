@@ -65,6 +65,9 @@ curl 'http://127.0.0.1:3000/gas-price?chain=base'
 - `scripts/sync-miner.sh` — publish the current `miner.yaml` on-chain in one
   step. Dry run unless `EXECUTE_ONCHAIN=YES`. See
   [`docs/TELEGRAPH-INTEGRATION.md`](docs/TELEGRAPH-INTEGRATION.md).
+- `scripts/smoke.sh [base-url]` — exercise every intent endpoint against a
+  running instance and assert the verdicts. Exits non-zero on any failure, so
+  it can gate a deploy. Defaults to production.
 - `scripts/verify-registration.sh` / `scripts/inspect-scoring.sh` — inspect a
   registration or live score data.
 

@@ -122,6 +122,25 @@ const INTENT_ROUTES: Record<string, IntentRoute> = {
   },
 };
 
+const MAX_LOGGED_INPUT = 512;
+
+/** Parameter names a caller used, so a parsing miss is diagnosable. */
+function describeKeys(query: URLSearchParams, body: unknown): string[] {
+  const keys = [...new Set([...query.keys()])];
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    for (const key of Object.keys(body)) keys.push(key);
+  }
+  return [...new Set(keys)];
+}
+
+/** The values a caller sent, truncated so one request cannot flood the log. */
+function describeInput(query: URLSearchParams, body: unknown): string {
+  const parts = [...query.entries()].map(([k, v]) => `${k}=${v}`);
+  if (body !== undefined) parts.push(JSON.stringify(body) ?? '');
+  const joined = parts.join('&');
+  return joined.length > MAX_LOGGED_INPUT ? `${joined.slice(0, MAX_LOGGED_INPUT)}…` : joined;
+}
+
 function requestId(request: IncomingMessage): string {
   const supplied = request.headers['x-request-id'];
   return typeof supplied === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(supplied)
@@ -217,15 +236,21 @@ export function createRequestHandler(config: AppConfig): RequestHandler {
 
       const intentRoute = INTENT_ROUTES[url.pathname];
       if (intentRoute) {
-        const values =
-          method === 'GET'
-            ? valuesFromQuery(url.searchParams)
-            : valuesFromBody(await readBody(request));
+        const body = method === 'GET' ? undefined : await readBody(request);
+        const values = method === 'GET' ? valuesFromQuery(url.searchParams) : valuesFromBody(body);
         const payload = await intentRoute.handle(values, config);
+        // The exact shape a caller used is the only way to tell a parsing
+        // miss from a wrong answer, and the router decides that shape rather
+        // than we do — so record it alongside what we resolved from it.
         log('intent_request', {
           requestId: id,
           intent: intentRoute.intent,
           path: url.pathname,
+          method,
+          userAgent: request.headers['user-agent'] ?? null,
+          requestKeys: describeKeys(url.searchParams, body),
+          rawInput: describeInput(url.searchParams, body),
+          response: payload,
           latencyMs: Math.round(performance.now() - started),
         });
         send(response, 200, payload, id);
@@ -269,12 +294,17 @@ export function createRequestHandler(config: AppConfig): RequestHandler {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const invalid = error instanceof TypeError;
+      // A request we failed to parse is the most important one to be able to
+      // read back, because it is the one that scored nothing.
       log(
         'request_failed',
         {
           requestId: id,
           method,
           path: url.pathname,
+          userAgent: request.headers['user-agent'] ?? null,
+          requestKeys: describeKeys(url.searchParams, undefined),
+          rawInput: describeInput(url.searchParams, undefined),
           error: message,
           latencyMs: Math.round(performance.now() - started),
         },

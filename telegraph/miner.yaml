@@ -23,10 +23,15 @@ docs:
 auth:
   type: none
 
-rate_limit_per_sec: 5
+# The example value of 5/s sits below the node's own 10/s default backstop and
+# would cap traffic this miner can comfortably serve; the endpoints are
+# stateless and scale horizontally.
+rate_limit_per_sec: 25
 cache_ttl_sec: 0
-circuit_threshold: 5
-circuit_cooldown_seconds: 30
+# Upstream public RPC and DefiLlama blips should not sideline the miner on a
+# short burst, and when the breaker does open it should reclose quickly.
+circuit_threshold: 8
+circuit_cooldown_seconds: 15
 
 endpoints:
   - path: /ssl-check

@@ -127,7 +127,10 @@ function reasonFor(
   const protocol = result.tlsProtocol ? ` The connection negotiated ${result.tlsProtocol}` : '';
   const cipher = result.cipher ? ` with cipher suite ${result.cipher}` : '';
   const keyBits = result.keyBits ? ` and a ${result.keyBits}-bit key` : '';
-  return `The TLS/SSL certificate for ${domain} is valid and trusted${issuer}, ${expiry}. ${chain} Hostname validation passes${names}.${protocol}${cipher}${keyBits}.`;
+  // Chain, hostname and validity period are all checked; revocation is not.
+  // Reporting "valid" without that caveat overclaims — a revoked certificate
+  // still presents a well-formed, in-date, trusted chain.
+  return `The TLS/SSL certificate for ${domain} is valid and trusted${issuer}, ${expiry}. ${chain} Hostname validation passes${names}.${protocol}${cipher}${keyBits}. This verdict covers chain trust, hostname match and validity period; revocation status via OCSP or CRL was not checked.`;
 }
 
 export function toTelegraphResponse(

@@ -240,3 +240,26 @@ no score. Update `docs/SCORING-LOG.md` with actual receipts after registration.
 These unknowns do not leak into the TLS engine. The only files intended to
 change after a receipt experiment are `src/telegraph/request.ts`,
 `src/telegraph/response.ts`, the YAML schema, and matching fixtures.
+
+## Publishing a miner change on-chain
+
+`scripts/sync-miner.sh` replaces the web portal and the IPFS pinning step.
+Because the registration commits to a SHA-256 of the YAML bytes, the URL it
+points at must be immutable; the script pins `raw.githubusercontent.com` to the
+exact commit SHA, which costs nothing and needs no pinning service.
+
+```bash
+# after changing telegraph/miner.yaml, committing and pushing:
+scripts/sync-miner.sh                      # dry run — validates and prints the tx
+EXECUTE_ONCHAIN=YES scripts/sync-miner.sh  # submits it
+```
+
+It refuses to proceed unless the YAML validates, the commit is published on
+`origin/main`, the hosted bytes hash-match the local file, and every declared
+intent is canonical on-chain. After submitting it reads `getMiner` back and
+polls the node until the manifest reports `active` or `rejected`.
+
+The signing key is read from `$MINER_PRIVATE_KEY` or `$MINER_KEY_FILE`
+(default `~/.preflight-miner-key`, mode 600). It is never passed as a command
+argument and never logged. The registering wallet owns the slug, so updates
+must be signed by the same wallet that holds registration 282.

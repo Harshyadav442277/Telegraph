@@ -14,6 +14,7 @@ export interface UrlScanResponse {
   reachable: boolean;
   http_status: number | null;
   redirect_count: number;
+  scan_truncated: boolean;
   redirect_chain: string[];
   tls_valid: boolean | null;
   tls_issuer: string | null;
@@ -52,6 +53,11 @@ const SUSPICIOUS_TLDS = new Set([
 
 // Weights are additive and capped; each corresponds to one reported finding so
 // the score is always explainable from the findings list.
+const MAX_HOPS = 6;
+const HOP_TIMEOUT_MS = 8_000;
+// Total budget for the whole scan, comfortably inside the serverless limit.
+const SCAN_BUDGET_MS = 18_000;
+
 const WEIGHTS = {
   notHttps: 25,
   credentialsInUrl: 30,
@@ -79,6 +85,8 @@ export async function scanUrl(
   now = new Date(),
 ): Promise<UrlScanResponse> {
   const url = normalizeUrl(raw);
+  const deadline = Date.now() + SCAN_BUDGET_MS;
+  let truncated = false;
   const hostname = url.hostname.toLowerCase();
   const findings: string[] = [];
   let risk = 0;
@@ -207,9 +215,17 @@ export async function scanUrl(
 
   if (!unsafeTarget) {
     let current = url.toString();
-    for (let hop = 0; hop < 6; hop += 1) {
+    for (let hop = 0; hop < MAX_HOPS; hop += 1) {
+      // Six hops at a per-hop timeout would exceed the serverless function
+      // limit on a pathological chain, and a timed-out function answers
+      // nothing at all. The whole redirect walk shares one budget.
+      const remaining = deadline - Date.now();
+      if (remaining <= 250) {
+        truncated = true;
+        break;
+      }
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8_000);
+      const timer = setTimeout(() => controller.abort(), Math.min(HOP_TIMEOUT_MS, remaining));
       try {
         const response = await fetch(current, {
           method: 'GET',
@@ -288,6 +304,9 @@ export async function scanUrl(
     findings.length > 0
       ? ` Findings: ${findings.join(' ')}`
       : ' No risk indicators were triggered.';
+  const truncatedSentence = truncated
+    ? ' The redirect walk stopped early because the scan time budget was reached, so the chain reported here may be incomplete.'
+    : '';
 
   return {
     url: url.toString(),
@@ -299,6 +318,7 @@ export async function scanUrl(
     reachable: observed,
     http_status: status,
     redirect_count: redirectChain.length,
+    scan_truncated: truncated,
     redirect_chain: redirectChain,
     tls_valid: tlsValid,
     tls_issuer: tlsIssuer,
@@ -307,7 +327,7 @@ export async function scanUrl(
     findings,
     security_headers: headers,
     confidence: 1,
-    reason: `${headline}${tlsSentence}${httpSentence}${dnsSentence}${findingSentence}`,
+    reason: `${headline}${tlsSentence}${httpSentence}${dnsSentence}${findingSentence}${truncatedSentence}`,
     checked_at: now.toISOString(),
   };
 }

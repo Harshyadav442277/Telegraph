@@ -5,6 +5,11 @@
     "input": "https://EXAMPLE.COM./health",
     "expectedVerdict": "valid"
   },
+  { "name": "explicit-port", "input": "example.com:443", "expectedVerdict": "valid" },
+  { "name": "url-with-query", "input": "https://example.com/path?q=1", "expectedVerdict": "valid" },
+  { "name": "idn-punycode", "input": "münchen.de", "expectedVerdict": "valid" },
+  { "name": "ip-literal-with-cert", "input": "1.1.1.1", "expectedVerdict": "valid" },
+  { "name": "wildcard-san", "input": "www.github.com", "expectedVerdict": "valid" },
   { "name": "badssl-expired", "input": "expired.badssl.com", "expectedVerdict": "expired" },
   {
     "name": "badssl-wrong-host",
@@ -22,9 +27,34 @@
     "expectedVerdict": "untrusted"
   },
   {
+    "name": "badssl-incomplete-chain",
+    "input": "incomplete-chain.badssl.com",
+    "expectedVerdict": "untrusted"
+  },
+  {
     "name": "nxdomain",
     "input": "preflight-does-not-exist.invalid",
     "expectedVerdict": "unreachable"
   },
-  { "name": "malformed", "input": "http://example.com", "expectedVerdict": "unreachable" }
+  { "name": "malformed", "input": "http://example.com", "expectedVerdict": "unreachable" },
+  {
+    "name": "tcp-refused-closed-port",
+    "input": "example.com:444",
+    "expectedVerdict": "unreachable"
+  },
+  {
+    "name": "non-tls-port",
+    "input": "example.com:80",
+    "expectedVerdict": "unreachable"
+  },
+  {
+    "name": "ssrf-loopback-blocked",
+    "input": "127.0.0.1",
+    "expectedVerdict": "unreachable"
+  },
+  {
+    "name": "ssrf-link-local-blocked",
+    "input": "169.254.169.254",
+    "expectedVerdict": "unreachable"
+  }
 ]

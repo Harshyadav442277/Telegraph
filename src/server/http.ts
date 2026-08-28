@@ -25,6 +25,7 @@ import { getWalletBalance } from '../intents/walletBalance.js';
 import { lookupTransaction } from '../intents/onchainTx.js';
 import { scanUrl } from '../intents/urlScan.js';
 import { lookupTvl } from '../intents/tvl.js';
+import { getCryptoPrice } from '../intents/cryptoPrice.js';
 import type { AppConfig } from './config.js';
 import { createLogger } from '../observability/logger.js';
 
@@ -89,6 +90,14 @@ const INTENT_ROUTES: Record<string, IntentRoute> = {
       const target = findUrl(values);
       if (!target) throw new TypeError('missing required field: url');
       return scanUrl(target, tlsOptionsFrom(config));
+    },
+  },
+  '/crypto-price': {
+    intent: 'CRYPTO_PRICE',
+    handle: async (values) => {
+      const subject = findSubject(values) ?? values.all()[0];
+      if (!subject) throw new TypeError('missing required field: asset');
+      return getCryptoPrice(subject);
     },
   },
   '/tvl': {

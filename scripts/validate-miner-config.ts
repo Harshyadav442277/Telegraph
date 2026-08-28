@@ -86,6 +86,7 @@ const INTENT_ENDPOINTS: Record<string, string> = {
   WALLET_BALANCE_CHECK: '/wallet-balance',
   ONCHAIN_TX_LOOKUP: '/tx-lookup',
   TVL_LOOKUP: '/tvl',
+  CRYPTO_PRICE: '/crypto-price',
 };
 const paths = new Set(
   endpoints.map((endpointValue) => record(endpointValue, 'endpoint').path as string),

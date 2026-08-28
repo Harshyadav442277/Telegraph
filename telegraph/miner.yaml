@@ -12,7 +12,8 @@ description: >
   security-header and risk analysis. Gas price, wallet balance and transaction
   lookup read directly from public JSON-RPC across Ethereum, Base, Arbitrum,
   OP Mainnet and Polygon, with EIP-7702 delegated accounts reported correctly.
-  Total value locked is mirrored from DefiLlama.
+  Total value locked and cryptocurrency spot prices are mirrored from
+  DefiLlama.
 base_url: https://preflight-ssl-verification.vercel.app
 
 docs:
@@ -56,6 +57,12 @@ endpoints:
     description: >
       Status and effect of a transaction hash, with block, confirmations,
       value, gas used and fee paid.
+  - path: /crypto-price
+    external_path: /crypto-price
+    method: GET
+    description: >
+      Current USD spot price for a cryptocurrency, by ticker or name,
+      aggregated by DefiLlama with the observation timestamp.
   - path: /tvl
     external_path: /tvl
     method: GET
@@ -88,6 +95,9 @@ input_schema:
     protocol:
       type: string
       description: DeFi protocol or chain name. Used by /tvl.
+    asset:
+      type: string
+      description: Cryptocurrency ticker or name. Used by /crypto-price.
 
 output_schema:
   type: object
@@ -127,6 +137,7 @@ output_schema:
           failed,
           pending,
           not_found,
+          found,
           protocol,
           chain,
         ]
@@ -198,6 +209,12 @@ output_schema:
     tvl_usd: { type: [number, 'null'] }
     tvl_formatted: { type: [string, 'null'] }
     source: { type: string }
+    # /crypto-price
+    asset: { type: [string, 'null'] }
+    price_usd: { type: [number, 'null'] }
+    price_formatted: { type: [string, 'null'] }
+    observed_at: { type: [string, 'null'] }
+    source_confidence: { type: [number, 'null'] }
 
 semantics:
   signal_mapping:
@@ -211,3 +228,4 @@ semantics:
     - WALLET_BALANCE_CHECK
     - ONCHAIN_TX_LOOKUP
     - TVL_LOOKUP
+    - CRYPTO_PRICE

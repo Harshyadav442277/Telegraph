@@ -8,3 +8,7 @@ tests
 *.c
 scripts/*.py
 .github
+core
+core.*
+*.core
+.git

@@ -9,3 +9,8 @@ coverage/
 benchmark-results/
 .vercel
 .env*
+
+# Crash dumps: never commit or deploy these (they can be gigabytes)
+core
+core.*
+*.core

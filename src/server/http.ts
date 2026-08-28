@@ -7,6 +7,7 @@ import { extractDomain, extractDomainFromQuery } from '../telegraph/request.js';
 import {
   findAddress,
   findChain,
+  findEnsName,
   findSubject,
   findTxHash,
   findUrl,
@@ -18,6 +19,7 @@ import { toTelegraphResponse } from '../telegraph/response.js';
 import { verifyTLS } from '../tls/verify.js';
 import type { TLSVerificationOptions } from '../tls/types.js';
 import { chainFromText, resolveChain } from '../chain/rpc.js';
+import { resolveEnsName } from '../chain/ens.js';
 import { getGasPrice } from '../intents/gasPrice.js';
 import { getWalletBalance } from '../intents/walletBalance.js';
 import { lookupTransaction } from '../intents/onchainTx.js';
@@ -55,11 +57,20 @@ const INTENT_ROUTES: Record<string, IntentRoute> = {
   '/wallet-balance': {
     intent: 'WALLET_BALANCE_CHECK',
     handle: async (values) => {
-      const address = findAddress(values);
-      if (!address)
-        throw new TypeError('missing required field: address (an 0x-prefixed EVM address)');
       const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
-      return getWalletBalance(address, chain);
+      const address = findAddress(values);
+      if (address) return getWalletBalance(address, chain);
+      // The intent explicitly covers ENS names, which resolve on mainnet
+      // regardless of which chain the balance is then read from.
+      const ensName = findEnsName(values);
+      if (ensName) {
+        const resolved = await resolveEnsName(ensName);
+        if (resolved) return getWalletBalance(resolved, chain, new Date(), ensName);
+        throw new TypeError(`ENS name does not resolve to an address: ${ensName}`);
+      }
+      throw new TypeError(
+        'missing required field: address (an 0x-prefixed EVM address or an ENS name)',
+      );
     },
   },
   '/tx-lookup': {

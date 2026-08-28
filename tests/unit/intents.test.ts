@@ -6,9 +6,11 @@ import {
   isTxHash,
   resolveChain,
 } from '../../src/chain/rpc.js';
+import { namehash } from '../../src/chain/ens.js';
 import {
   findAddress,
   findChain,
+  findEnsName,
   findTxHash,
   findUrl,
   valuesFromBody,
@@ -97,5 +99,21 @@ describe('tolerant parameter extraction', () => {
   it('returns undefined when nothing usable is present', () => {
     expect(findAddress(valuesFromQuery(q('q=hello world')))).toBeUndefined();
     expect(findTxHash(valuesFromBody({}))).toBeUndefined();
+  });
+});
+
+describe('ENS', () => {
+  it('computes the EIP-137 namehash vectors', () => {
+    expect(namehash('eth')).toBe(
+      '0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae',
+    );
+    // The empty name is the zero node.
+    expect(namehash('')).toBe(`0x${'0'.repeat(64)}`);
+  });
+
+  it('finds an ENS name in a question and ignores non-names', () => {
+    expect(findEnsName(valuesFromQuery(q('q=how much does vitalik.eth hold')))).toBe('vitalik.eth');
+    expect(findEnsName(valuesFromBody({ address: 'nick.eth' }))).toBe('nick.eth');
+    expect(findEnsName(valuesFromQuery(q('q=check example.com')))).toBeUndefined();
   });
 });

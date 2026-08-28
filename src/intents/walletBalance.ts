@@ -2,6 +2,7 @@ import { formatUnits, hexToBigInt, isAddress, rpcCall, type ChainInfo } from '..
 
 export interface WalletBalanceResponse {
   address: string;
+  ens_name: string | null;
   chain: string;
   chain_id: number;
   balance_wei: string;
@@ -45,6 +46,7 @@ export async function getWalletBalance(
   address: string,
   chain: ChainInfo,
   now = new Date(),
+  ensName: string | null = null,
 ): Promise<WalletBalanceResponse> {
   const normalized = address.trim();
   if (!isAddress(normalized)) {
@@ -85,13 +87,15 @@ export async function getWalletBalance(
     ? `holds a balance of ${balance} ${chain.symbol}`
     : `holds no ${chain.symbol} balance (0 ${chain.symbol})`;
 
+  const subject = ensName ? `${ensName} (${normalized})` : normalized;
   const reason =
-    `The address ${normalized} on ${chain.name} (chain ID ${chain.chainId}) ${holding}, ` +
-    `equal to ${balanceWei.toString()} wei. It is a ${kind}.${activity}${blockSentence} ` +
+    `The address ${subject} on ${chain.name} (chain ID ${chain.chainId}) ${holding}, ` +
+    `equal to ${balanceWei.toString()} wei. It is ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.${activity}${blockSentence} ` +
     `This balance covers only the native ${chain.symbol} token and does not include ERC-20 holdings.`;
 
   return {
     address: normalized,
+    ens_name: ensName,
     chain: chain.key,
     chain_id: chain.chainId,
     balance_wei: balanceWei.toString(),

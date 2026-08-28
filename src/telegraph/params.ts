@@ -68,6 +68,19 @@ export function findAddress(values: RequestValues): string | undefined {
   return undefined;
 }
 
+const ENS_PATTERN = /\b([a-z0-9-_]+(?:\.[a-z0-9-_]+)*\.eth)\b/i;
+
+/** An ENS name given directly, or named inside a free-text question. */
+export function findEnsName(values: RequestValues): string | undefined {
+  const direct = values.get(['ens', 'ens_name', 'name', 'address', 'wallet', 'account']);
+  if (direct && ENS_PATTERN.test(direct)) return ENS_PATTERN.exec(direct)?.[1];
+  for (const value of values.all()) {
+    const match = ENS_PATTERN.exec(value);
+    if (match) return match[1];
+  }
+  return undefined;
+}
+
 export function findTxHash(values: RequestValues): string | undefined {
   const direct = values.get(['hash', 'tx', 'tx_hash', 'txhash', 'transaction', 'transaction_hash']);
   if (direct && isTxHash(direct)) return direct;

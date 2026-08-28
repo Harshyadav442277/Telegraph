@@ -1,7 +1,23 @@
 import type { TLSVerificationResult } from '../tls/types.js';
 
 export interface LiveCertResponse {
+  chain_complete: boolean | null;
+  chain_length?: number | null;
+  checked_at: string;
+  cipher?: string | null;
+  confidence: number;
+  days_remaining: number | null;
   domain: string;
+  expired?: boolean;
+  hostname_match?: boolean;
+  issuer: string | null;
+  key_bits?: number | null;
+  reason: string;
+  subject?: string | null;
+  subject_alt_names?: string[] | null;
+  tls_protocol?: string | null;
+  trusted?: boolean;
+  unreachable_reason?: string;
   verdict:
     | 'valid'
     | 'expired'
@@ -11,13 +27,8 @@ export interface LiveCertResponse {
     | 'untrusted'
     | 'unreachable';
   valid: boolean;
-  chain_complete: boolean | null;
-  issuer: string | null;
+  valid_from?: string | null;
   valid_to: string | null;
-  days_remaining: number | null;
-  confidence: number;
-  reason: string;
-  checked_at: string;
 }
 
 function verdictFor(result: TLSVerificationResult): LiveCertResponse['verdict'] {
@@ -57,20 +68,32 @@ function reasonFor(
 ): string {
   const domain = result.normalizedHost || result.input;
   if (verdict === 'unreachable')
-    return `The TLS/SSL endpoint for ${domain} could not be reached (${result.failureCode}).`;
+    return `The TLS/SSL endpoint for ${domain} could not be reached (${result.failureCode}). ${result.failureMessage ?? 'No further connection details were available.'}`;
   if (verdict === 'expired') return `The TLS/SSL certificate for ${domain} is expired.`;
   if (verdict === 'not_yet_valid') return `The TLS/SSL certificate for ${domain} is not yet valid.`;
   if (verdict === 'hostname_mismatch')
     return `The TLS/SSL certificate presented by ${domain} does not match the requested hostname.`;
   if (verdict === 'self_signed')
     return `The TLS/SSL certificate for ${domain} is self-signed and is not trusted.`;
-  if (verdict === 'untrusted') return `The TLS/SSL certificate chain for ${domain} is not trusted.`;
+  if (verdict === 'untrusted') {
+    const issuer = result.certificate?.issuer ? `, issued by ${result.certificate.issuer}` : '';
+    return `The TLS/SSL certificate for ${domain} is not trusted${issuer}. The presented certificate chain does not build to a trusted root.`;
+  }
   const expiry =
     days === null
       ? 'with no readable expiry'
       : `expiring in ${days} days on ${dateOnly(result.certificate?.validTo)}`;
   const issuer = result.certificate?.issuer ? `, issued by ${result.certificate.issuer}` : '';
-  return `The TLS/SSL certificate configuration for ${domain} is valid. Certificate validity: the certificate is currently valid, ${expiry}${issuer}. Chain trust: the server presented a trusted certificate chain. Hostname verification: passes. The connection negotiated TLS.`;
+  const chain = result.certificate?.chainComplete
+    ? `The server presented a complete chain of ${result.certificate.chainLength ?? 'multiple'} certificates including intermediates.`
+    : 'The server did not present a complete certificate chain.';
+  const names = result.certificate?.subjectAltNames?.length
+    ? ` against Subject Alternative Name ${result.certificate.subjectAltNames.join(', ')}`
+    : '';
+  const protocol = result.tlsProtocol ? ` The connection negotiated ${result.tlsProtocol}` : '';
+  const cipher = result.cipher ? ` with cipher suite ${result.cipher}` : '';
+  const keyBits = result.keyBits ? ` and a ${result.keyBits}-bit key` : '';
+  return `The TLS/SSL certificate for ${domain} is valid and trusted${issuer}, ${expiry}. ${chain} Hostname validation passes${names}.${protocol}${cipher}${keyBits}.`;
 }
 
 export function toTelegraphResponse(
@@ -79,16 +102,31 @@ export function toTelegraphResponse(
 ): LiveCertResponse {
   const verdict = verdictFor(result);
   const days = daysRemaining(result.certificate?.validTo, now);
-  return {
-    domain: result.normalizedHost || result.input,
-    verdict,
-    valid: result.valid,
+  const response: LiveCertResponse = {
     chain_complete: result.certificate?.chainComplete ?? null,
-    issuer: result.certificate?.issuer ?? null,
-    valid_to: dateOnly(result.certificate?.validTo),
-    days_remaining: days,
-    confidence: result.handshakeSucceeded && result.certificatePresent ? 1 : 0,
-    reason: reasonFor(result, verdict, days),
     checked_at: now.toISOString(),
+    confidence: 1,
+    days_remaining: days,
+    domain: result.normalizedHost || result.input,
+    issuer: result.certificate?.issuer ?? null,
+    reason: reasonFor(result, verdict, days),
+    valid: result.valid,
+    valid_to: dateOnly(result.certificate?.validTo),
+    verdict,
   };
+  if (result.certificatePresent) {
+    response.chain_length = result.certificate?.chainLength ?? null;
+    response.cipher = result.cipher ?? null;
+    response.expired = result.failureCode === 'EXPIRED';
+    response.hostname_match = result.hostnameValid === true;
+    response.key_bits = result.keyBits ?? result.certificate?.keyBits ?? null;
+    response.subject = result.certificate?.subject ?? null;
+    response.subject_alt_names = result.certificate?.subjectAltNames ?? null;
+    response.tls_protocol = result.tlsProtocol ?? null;
+    response.trusted = result.chainTrusted === true;
+    response.valid_from = dateOnly(result.certificate?.validFrom);
+  }
+  if (!result.reachable || !result.handshakeSucceeded)
+    response.unreachable_reason = result.failureMessage ?? result.failureCode;
+  return response;
 }

@@ -32,6 +32,12 @@ function firstString(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function isoDate(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined;
+}
+
 function principalMatches(left: tls.Certificate, right: tls.Certificate): boolean {
   const keys: Array<keyof tls.Certificate> = ['C', 'CN', 'L', 'O', 'OU', 'ST'];
   const compared = keys.filter((key) => left[key] !== undefined && right[key] !== undefined);
@@ -106,8 +112,11 @@ function getCertificate(socket: tls.TLSSocket): {
   if (issuer) certificate.issuer = issuer;
   if (peer.serialNumber) certificate.serialNumber = peer.serialNumber;
   if (peer.fingerprint256) certificate.fingerprint256 = peer.fingerprint256;
-  if (peer.valid_from) certificate.validFrom = new Date(peer.valid_from).toISOString();
-  if (peer.valid_to) certificate.validTo = new Date(peer.valid_to).toISOString();
+  const validFrom = isoDate(peer.valid_from);
+  const validTo = isoDate(peer.valid_to);
+  if (validFrom) certificate.validFrom = validFrom;
+  if (validTo) certificate.validTo = validTo;
+  if (typeof peer.bits === 'number' && Number.isInteger(peer.bits)) certificate.keyBits = peer.bits;
   const subjectAltNames = parseSubjectAlternativeNames(peer.subjectaltname);
   if (subjectAltNames) certificate.subjectAltNames = subjectAltNames;
   return { certificate, present: true };
@@ -169,6 +178,7 @@ function verifyAttempt(
           timeNow.getTime() <= validTo;
         const chainTrusted = socket.authorized;
         const hostnameValid = !hostnameError;
+        const cipher = socket.getCipher();
         const failureCode = !certificate.present
           ? 'NO_CERTIFICATE'
           : !hostnameValid
@@ -189,13 +199,18 @@ function verifyAttempt(
           timeValid,
           valid: failureCode === 'NONE',
           failureCode,
+          cipher: cipher.standardName || cipher.name,
           timingMs: {
             connect: connectMs,
             handshake: elapsed(connectStarted),
             total: elapsed(connectStarted),
           },
         };
+        const protocol = socket.getProtocol();
+        if (protocol) attemptResult.tlsProtocol = protocol;
         if (certificate.certificate) attemptResult.certificate = certificate.certificate;
+        if (certificate.certificate?.keyBits !== undefined)
+          attemptResult.keyBits = certificate.certificate.keyBits;
         const failureMessage = hostnameError?.message ?? socket.authorizationError;
         if (failureMessage)
           attemptResult.failureMessage =

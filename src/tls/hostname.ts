@@ -70,7 +70,6 @@ export function parseSubjectAlternativeNames(value: string | undefined): string[
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
-    .map((item) => item.replace(/^DNS:/i, '').replace(/^IP Address:/i, ''))
     .sort((a, b) => a.localeCompare(b));
   return names.length > 0 ? names : undefined;
 }

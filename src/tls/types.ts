@@ -22,6 +22,7 @@ export interface CertificateDetails {
   subjectAltNames?: string[];
   chainLength?: number;
   chainComplete?: boolean;
+  keyBits?: number;
 }
 
 export interface NetworkDetails {
@@ -51,6 +52,9 @@ export interface TLSVerificationResult {
   valid: boolean;
   failureCode: FailureCode;
   failureMessage?: string;
+  tlsProtocol?: string;
+  cipher?: string;
+  keyBits?: number;
   certificate?: CertificateDetails;
   network: NetworkDetails;
   timingMs: TimingDetails;

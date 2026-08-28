@@ -123,13 +123,23 @@ Observed response from the active `livecert` Miner:
 
 ```json
 {
+  "chain_length": 3,
   "domain": "example.com",
   "verdict": "valid",
   "valid": true,
   "chain_complete": true,
+  "trusted": true,
+  "expired": false,
+  "hostname_match": true,
   "issuer": "SSL Corporation",
+  "subject": "example.com",
+  "subject_alt_names": ["DNS:example.com"],
+  "valid_from": "2026-01-01",
   "valid_to": "2026-10-27",
   "days_remaining": 60,
+  "tls_protocol": "TLSv1.3",
+  "cipher": "TLS_AES_128_GCM_SHA256",
+  "key_bits": 256,
   "confidence": 1,
   "reason": "The TLS/SSL certificate configuration for example.com is valid. ...",
   "checked_at": "2026-08-27T22:59:48.654Z"
@@ -165,8 +175,11 @@ ignored after parsing the authority.
   and certificate time validity all pass.
 - Unreachable endpoints return HTTP 200 with `valid: false` and
   `verdict: "unreachable"`; normal negative verification is not an HTTP 500.
-- `confidence` is `1` for a completed deterministic observation and `0` for
-  an input or network observation that cannot establish a certificate fact.
+- `confidence` is `1` for every well-formed request that receives a
+  deterministic classification, including DNS and network failures. This
+  matches the observed livecert behavior; it is a confidence in the
+  classification, not a claim that an unreachable host has a valid
+  certificate.
 - `checked_at` is UTC ISO-8601 and is excluded from canonical comparison by
   the adapter's stable fields when a strict fixture comparison is used. It is
   retained for operations/debugging.

@@ -108,6 +108,42 @@ YAML committed at `20249596d0284378dee6691dbf287b240d1ee1e8`, SHA-256
 `43568e6562809c24fb81df7f220394f4336deb9b88041adb68689d3c91398ef3`,
 hosted-vs-local hash verified identical before registration.
 
+## 2026-08-28 — PREFLIGHT registered on Telegraph
+
+| Field | Value |
+|---|---|
+| Registration ID | `282` |
+| Transaction | `0xf3a301103ebdad9d…0aa907d1` |
+| Network | Base Sepolia (84532) |
+| Contract | `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8` |
+| Owner / fee address | `0x5c4B38CF6aDb8c5A30242c3FC9124CE0197D2d52` |
+| YAML URL | `https://gateway.pinata.cloud/ipfs/QmWyAPYsRtUTYvjNUeaV5z8g2zM3Zt6Eurz67KHmovgZT7` |
+| YAML hash | `0x837d3536e53485c95845c714bb492922695f3ac3c378d9314de8a4551444fd83` |
+| intentId | `0x2d477ac0d0ee8ac9ca1c2b8875817aa819d626807936ab32aca7445436d4ea8f` |
+| Min price | `10000` (0.01 USDC) |
+| Intents | `["SSL_VERIFICATION"]` |
+
+Verified independently rather than trusting the portal:
+
+- `getMiner(282)` on the Diamond returns `active = true` and the values above.
+- The on-chain `yamlHash` equals the SHA-256 of the bytes served by the IPFS
+  gateway, computed locally.
+- Node indexed the registration ~10s after confirmation:
+  `activation_status: active`, `rejection_reason: null`, `retrying: false`.
+- `/api/miners` lists `preflight-ssl-verification` with
+  `base_url: https://preflight-ssl-verification.vercel.app` and the
+  `/ssl-check` endpoint.
+
+Note: the portal re-serialized the YAML when pinning (normalized quotes,
+reflowed the description, and converted `'null'` type strings in
+`output_schema` to real nulls). The pinned copy is semantically equivalent on
+every routing-relevant field; the on-chain hash commits to the pinned bytes,
+so hash verification is self-consistent.
+
+SSL_VERIFICATION field at registration time (epoch 289): livecert 0.010148683
+(rank 1), txlens 0.006346065 (rank 2), ssllabs 0.00448634 (rank 3),
+certspotter 0 (rank 4), preflight not yet scored.
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

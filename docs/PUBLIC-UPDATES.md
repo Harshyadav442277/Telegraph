@@ -77,13 +77,18 @@ until the milestone is real and the numbers are filled in.
 > certificate paths return the same factual depth as the happy path.
 > @Telegraphprotoc
 
-## 6. Registration — `PENDING` (fill in tx hash and miner ID)
+## 6. Registration — `READY`
 
 > PREFLIGHT is registered on Telegraph as an SSL_VERIFICATION miner.
 >
-> tx: <TX_HASH>
-> miner id: <MINER_ID>
+> registration id: 282
+> tx: 0xf3a301103ebdad9d…0aa907d1 (Base Sepolia)
 > intent: SSL_VERIFICATION (Tier A, deterministic)
+> endpoint: https://preflight-ssl-verification.vercel.app/ssl-check
+>
+> We verified the registration ourselves rather than trusting the UI: read
+> getMiner() back off the Diamond, and confirmed the on-chain YAML hash equals
+> the SHA-256 of the bytes actually served by the IPFS gateway.
 >
 > One intent. Narrow surface. @Telegraphprotoc
 

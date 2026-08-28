@@ -38,12 +38,14 @@ if [[ -n "$(git status --porcelain "$YAML_FILE")" ]]; then
   echo "$YAML_FILE has uncommitted changes. Commit and push before syncing." >&2
   exit 1
 fi
-# Fetch only main: unrelated refs in the repo can be broken and would abort a
-# full fetch, which has nothing to do with whether this commit is published.
-git fetch --quiet origin main 2>/dev/null || true
+# ls-remote rather than fetch: a broken unrelated ref in the repository aborts
+# a fetch, and all this needs to know is the SHA origin/main points at.
 SHA="$(git rev-parse HEAD)"
-if ! git merge-base --is-ancestor "$SHA" FETCH_HEAD 2>/dev/null; then
-  echo "HEAD ($SHA) is not published on origin/main. Push before syncing, or the URL will 404." >&2
+REMOTE_SHA="$(git ls-remote origin main | awk '{print $1}')"
+if [[ "$SHA" != "$REMOTE_SHA" ]]; then
+  echo "HEAD is not what origin/main points at. Push before syncing, or the URL will 404." >&2
+  echo "  local:  $SHA" >&2
+  echo "  origin: ${REMOTE_SHA:-<unreachable>}" >&2
   exit 1
 fi
 

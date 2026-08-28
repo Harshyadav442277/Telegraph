@@ -94,6 +94,20 @@ Because normalization is within-intent, the absolute value of the SSL scores
 does not matter for the 75-point component. Rank 1 is what matters, and rank 1
 currently costs 0.0102.
 
+## 2026-08-28 — PREFLIGHT deployed to production
+
+- Public base URL: `https://preflight-ssl-verification.vercel.app`
+- Host: Vercel Hobby (the same platform the current SSL rank-1 miner uses)
+- Verified live: `/health` 200, `/ready` 200, `/miner.yaml` 200
+- All six verdict paths verified against real hosts: valid, expired,
+  hostname_mismatch, self_signed, untrusted, unreachable
+- Observed latency on `/ssl-check?domain=example.com`: 0.348s / 0.314s / 0.317s
+- Local benchmark: 8/8 correct, p50 190ms, p95 878ms
+
+YAML committed at `20249596d0284378dee6691dbf287b240d1ee1e8`, SHA-256
+`43568e6562809c24fb81df7f220394f4336deb9b88041adb68689d3c91398ef3`,
+hosted-vs-local hash verified identical before registration.
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

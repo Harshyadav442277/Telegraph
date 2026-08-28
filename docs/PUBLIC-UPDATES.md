@@ -64,11 +64,14 @@ until the milestone is real and the numbers are filled in.
 > Deterministic DNS, SNI-aware TLS 1.2/1.3 handshake, native chain
 > verification, SSRF-guarded outbound. @Telegraphprotoc
 
-## 5. Deployment — `PENDING` (fill in the public URL)
+## 5. Deployment — `READY`
 
-> PREFLIGHT is live at <PUBLIC_URL>.
+> PREFLIGHT is live at https://preflight-ssl-verification.vercel.app
 >
 > /health · /ready · /ssl-check?domain=…
+>
+> ~315ms end to end. All six verdict paths verified in production: valid,
+> expired, hostname_mismatch, self_signed, untrusted, unreachable.
 >
 > Try it against expired.badssl.com or wrong.host.badssl.com — negative
 > certificate paths return the same factual depth as the happy path.

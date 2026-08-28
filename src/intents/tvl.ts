@@ -1,8 +1,8 @@
 export interface TvlResponse {
   query: string;
   resolved_name: string | null;
-  kind: 'protocol' | 'chain' | 'not_found';
-  verdict: 'protocol' | 'chain' | 'not_found';
+  kind: 'protocol' | 'chain' | 'not_found' | 'unavailable';
+  verdict: 'protocol' | 'chain' | 'not_found' | 'unavailable';
   tvl_usd: number | null;
   tvl_formatted: string | null;
   change_1d_pct: number | null;
@@ -47,15 +47,20 @@ export function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
-async function getJson<T>(url: string, timeoutMs = 9_000): Promise<T | null> {
+// "The upstream did not answer" and "the upstream answered, and the thing does
+// not exist" are different facts. Collapsing them makes the miner claim an
+// asset is untracked when the API was merely unreachable.
+type Fetched<T> = { ok: true; value: T } | { ok: false };
+
+async function getJson<T>(url: string, timeoutMs = 9_000): Promise<Fetched<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) return null;
-    return (await response.json()) as T;
+    if (!response.ok) return { ok: false };
+    return { ok: true, value: (await response.json()) as T };
   } catch {
-    return null;
+    return { ok: false };
   } finally {
     clearTimeout(timer);
   }
@@ -70,18 +75,18 @@ function titleCase(value: string): string {
 }
 
 /** `/tvl/{slug}` returns a bare number; an empty body means "not a protocol". */
-async function getProtocolTvl(slug: string, timeoutMs = 9_000): Promise<number | null> {
+async function getProtocolTvl(slug: string, timeoutMs = 9_000): Promise<Fetched<number | null>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${LLAMA}/tvl/${slug}`, { signal: controller.signal });
-    if (!response.ok) return null;
+    if (!response.ok) return { ok: false };
     const text = (await response.text()).trim();
-    if (!text) return null;
+    if (!text) return { ok: true, value: null };
     const value = Number(text);
-    return Number.isFinite(value) ? value : null;
+    return { ok: true, value: Number.isFinite(value) ? value : null };
   } catch {
-    return null;
+    return { ok: false };
   } finally {
     clearTimeout(timer);
   }
@@ -99,10 +104,12 @@ export async function lookupTvl(query: string, now = new Date()): Promise<TvlRes
   // The full /protocol/{slug} document embeds complete TVL history — nearly
   // 2 MB for a large protocol — so the bare /tvl/{slug} number is used
   // instead and chains are resolved from the compact chain list.
-  const [protocolTvl, chains] = await Promise.all([
-    slug ? getProtocolTvl(slug) : Promise.resolve(null),
+  const [protocolResult, chainsResult] = await Promise.all([
+    slug ? getProtocolTvl(slug) : Promise.resolve({ ok: true as const, value: null }),
     getJson<LlamaChain[]>(`${LLAMA}/v2/chains`),
   ]);
+  const protocolTvl = protocolResult.ok ? protocolResult.value : null;
+  const chains = chainsResult.ok ? chainsResult.value : null;
 
   const match = chains?.find(
     (c) =>
@@ -157,6 +164,29 @@ export async function lookupTvl(query: string, now = new Date()): Promise<TvlRes
         `(${tvl.toFixed(2)} USD) across all DeFi protocols tracked on it by DefiLlama` +
         `${match.tokenSymbol ? `, with ${match.tokenSymbol} as its native token` : ''}. ` +
         `Total value locked measures the aggregate USD value of assets deposited in on-chain contracts.`,
+    };
+  }
+
+  // Neither lookup reached DefiLlama, so nothing can be asserted about whether
+  // the subject exists.
+  if (!protocolResult.ok && !chainsResult.ok) {
+    return {
+      ...base,
+      resolved_name: null,
+      kind: 'unavailable',
+      verdict: 'unavailable',
+      tvl_usd: null,
+      tvl_formatted: null,
+      change_1d_pct: null,
+      change_7d_pct: null,
+      category: null,
+      chains: [],
+      symbol: null,
+      url: null,
+      reason:
+        `The total value locked for "${query}" could not be retrieved because DefiLlama's API ` +
+        `did not respond. This is a temporary upstream failure, not a statement about whether ` +
+        `"${query}" exists or how much value is locked in it; the figure is unknown rather than zero.`,
     };
   }
 

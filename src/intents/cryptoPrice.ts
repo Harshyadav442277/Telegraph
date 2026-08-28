@@ -7,7 +7,7 @@ export interface CryptoPriceResponse {
   source_confidence: number | null;
   observed_at: string | null;
   found: boolean;
-  verdict: 'found' | 'not_found';
+  verdict: 'found' | 'not_found' | 'unavailable';
   source: string;
   confidence: number;
   reason: string;
@@ -132,6 +132,8 @@ export async function getCryptoPrice(
 
   let entry: CoinEntry | undefined;
   let key = '';
+  // A feed that did not answer is not evidence that an asset is untracked.
+  let upstreamAnswered = false;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 9_000);
   try {
@@ -139,6 +141,7 @@ export async function getCryptoPrice(
       signal: controller.signal,
     });
     if (response.ok) {
+      upstreamAnswered = true;
       const payload = (await response.json()) as { coins?: Record<string, CoinEntry> };
       const coins = payload.coins ?? {};
       key = Object.keys(coins)[0] ?? '';
@@ -148,6 +151,24 @@ export async function getCryptoPrice(
     entry = undefined;
   } finally {
     clearTimeout(timer);
+  }
+
+  if (!upstreamAnswered) {
+    return {
+      ...base,
+      asset: id,
+      symbol: null,
+      price_usd: null,
+      price_formatted: null,
+      source_confidence: null,
+      observed_at: null,
+      found: false,
+      verdict: 'unavailable',
+      reason:
+        `The current price of "${query}" could not be retrieved because the DefiLlama price feed ` +
+        `did not respond. This is a temporary upstream failure, not a statement about whether ` +
+        `"${query}" is a tracked asset; its price is unknown rather than zero or unlisted.`,
+    };
   }
 
   if (!entry || typeof entry.price !== 'number') {

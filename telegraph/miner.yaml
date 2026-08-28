@@ -119,7 +119,9 @@ output_schema:
         Primary decision. /ssl-check returns a certificate verdict, /url-scan a
         safety verdict, /gas-price a congestion level, /wallet-balance funded
         or empty, /tx-lookup a transaction status, /tvl the kind of subject
-        resolved.
+        resolved, /crypto-price whether a quote was found. "unavailable" means
+        an upstream source did not answer, which is distinct from the subject
+        not existing.
       enum:
         [
           valid,
@@ -143,6 +145,7 @@ output_schema:
           pending,
           not_found,
           found,
+          unavailable,
           protocol,
           chain,
         ]

@@ -292,6 +292,43 @@ Live in production, every reason clearing the length threshold:
 | `/wallet-balance?address=vitalik.eth` | resolved, funded | 437 |
 | `/url-scan?url=https://github.com` | safe, not truncated | 325 |
 
+## 2026-08-29 — Production correctness sweep (registration 286)
+
+Ran every endpoint against real hosts and adversarial inputs rather than
+trusting unit tests. Confirmed correct: `incomplete-chain.badssl.com` ->
+untrusted, IDN `münchen.de` -> valid, IP literal `1.1.1.1` -> valid (Cloudflare
+genuinely holds a certificate for it), `localhost` and `127.0.0.1` blocked by
+the SSRF guard, uppercase / trailing-dot / explicit-port / full-URL inputs all
+normalising to the same verdict, Polygon reporting POL rather than ETH, the
+zero address showing its real 14,149 ETH balance, USDC classified as a
+contract, and malformed addresses and hashes rejected as INVALID_INPUT.
+
+Two genuine defects surfaced, both fixed:
+
+1. **Any unrecognised chain silently resolved to Ethereum.** "Gas price on
+   Avalanche" returned Ethereum's gas price labelled as Ethereum — confidently
+   answering a question that was never asked, which scores worse against
+   ground truth than declining. An explicitly named chain must now be one we
+   serve; a chain named only in passing in free text stays advisory; a question
+   naming none still defaults to Ethereum.
+
+2. **`revoked.badssl.com` reported as `valid`.** We check chain trust,
+   hostname and validity period, but not OCSP or CRL, and a revoked
+   certificate still presents a well-formed, in-date, trusted chain. Rather
+   than implement a partial revocation check under time pressure, the valid
+   verdict now states exactly what it covers. Full OCSP remains open work.
+
+Separately, `rate_limit_per_sec` was 5 — copied from the documentation's
+example. The node treats it as the ceiling on what it will send upstream, and
+its default backstop for a miner declaring nothing is 10/s, so the value was
+capping our own traffic below the default. Raised to 25/s, with the circuit
+breaker tolerating a short burst of upstream blips (8) and reclosing faster
+(15s).
+
+Registration rotated 285 -> 286. On-chain hash
+`0x7d710a5b7330fe7819c411227f57f95284270d9afd32648d57839eeeaaa8cdb9` equals
+the local file byte-for-byte.
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

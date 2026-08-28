@@ -1,0 +1,10 @@
+node_modules
+dist
+tmp
+output
+sql
+tests
+
+*.c
+scripts/*.py
+.github

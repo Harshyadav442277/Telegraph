@@ -8,7 +8,7 @@ description: >
   Deterministic live TLS verification for autonomous infrastructure and agents.
   Performs DNS resolution, a TLS 1.2/1.3 handshake with SNI, native chain
   verification, hostname verification, and certificate time validation.
-base_url: http://localhost:3000
+base_url: https://preflight-ssl-verification.vercel.app
 
 docs:
   repository: https://github.com/Harshyadav442277/Telegraph

@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": null,
+  "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
       "maxDuration": 30,
@@ -7,5 +9,12 @@
       "includeFiles": "telegraph/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    { "source": "/health", "destination": "/api/index" },
+    { "source": "/healthz", "destination": "/api/index" },
+    { "source": "/ready", "destination": "/api/index" },
+    { "source": "/miner.yaml", "destination": "/api/index" },
+    { "source": "/ssl-check", "destination": "/api/index" },
+    { "source": "/v1/ssl-check", "destination": "/api/index" }
+  ]
 }

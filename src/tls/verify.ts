@@ -32,6 +32,22 @@ function firstString(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function principalMatches(left: tls.Certificate, right: tls.Certificate): boolean {
+  const keys: Array<keyof tls.Certificate> = ['C', 'CN', 'L', 'O', 'OU', 'ST'];
+  const compared = keys.filter((key) => left[key] !== undefined && right[key] !== undefined);
+  return (
+    compared.length > 0 &&
+    compared.every((key) => JSON.stringify(left[key]) === JSON.stringify(right[key]))
+  );
+}
+
+function hasPresentedIssuer(chain: tls.PeerCertificate[]): boolean {
+  if (chain.length < 2) return false;
+  const leaf = chain[0];
+  const issuer = chain[1];
+  return Boolean(leaf && issuer && principalMatches(leaf.issuer, issuer.subject));
+}
+
 function isTimeout(error: unknown): boolean {
   const code = errorCode(error);
   return code === 'ETIMEDOUT' || /timed out/i.test(errorMessage(error));
@@ -82,7 +98,7 @@ function getCertificate(socket: tls.TLSSocket): {
   }
   const certificate: CertificateDetails = {
     chainLength: chain.length,
-    chainComplete: chain.length > 1,
+    chainComplete: hasPresentedIssuer(chain),
   };
   const subject = firstString(peer.subject?.CN);
   const issuer = firstString(peer.issuer?.O) ?? firstString(peer.issuer?.CN);

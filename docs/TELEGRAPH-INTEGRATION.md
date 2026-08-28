@@ -41,6 +41,17 @@ The current live intent endpoint returned `SSL_VERIFICATION` with
 the Miner-count guardrail for the target Intent, but does not establish the
 Track-3 request count.
 
+### Live refresh on 2026-08-28
+
+The public supported-intents page displayed 40 intents, while the live
+devnode endpoint returned 45 canonical intents. This count discrepancy is
+recorded rather than resolved by inference. Both sources continued to identify
+`SSL_VERIFICATION` as a canonical deterministic Intent, and the live API
+returned four active SSL Miners. The live catalogue exposed epoch-289 raw
+per-Intent values of approximately `0.010148683`, `0.006346065`,
+`0.00448634`, and `0` for the four observed Miners. These values are not
+treated as a normalized leaderboard score.
+
 ## Current canonical Intent
 
 The live endpoint describes the Intent as:

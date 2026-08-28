@@ -32,6 +32,9 @@ Gateway.
   (`rejectUnauthorized: false`) so trust, hostname, and time failures can be
   classified independently. The result is still invalid unless all checks
   pass.
+- `getPeerCertificate(true)` is walked through the server-presented issuer
+  links. `chainComplete` means the leaf has a linked issuer in the presented
+  chain; it is not inferred from trust or from an arbitrary chain length.
 - A connection/handshake network failure may try the next deterministic
   address. A completed handshake is authoritative for that attempt, even if
   its certificate is invalid.

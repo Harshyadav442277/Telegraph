@@ -38,6 +38,19 @@ function get(path: string): Promise<{ status: number; body: Record<string, unkno
   });
 }
 
+function getText(path: string): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path, method: 'GET' }, (res) => {
+      const chunks: string[] = [];
+      res.setEncoding('utf8');
+      res.on('data', (chunk: string) => chunks.push(chunk));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: chunks.join('') }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 beforeAll(
   () =>
     new Promise<void>((resolve) => {
@@ -59,6 +72,9 @@ afterAll(
 describe('HTTP miner', () => {
   it('serves health and malformed input deterministically', async () => {
     expect((await get('/health')).body.status).toBe('ok');
+    const minerYaml = await getText('/miner.yaml');
+    expect(minerYaml.status).toBe(200);
+    expect(minerYaml.body).toContain('supported_intents:');
     const response = await get('/ssl-check');
     expect(response.status).toBe(400);
     expect(response.body.code).toBe('INVALID_INPUT');

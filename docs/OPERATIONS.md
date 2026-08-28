@@ -16,16 +16,19 @@ requests with a negative JSON verdict.
 
 ## Deployment
 
-Use a persistent Node 22 host (Railway, Render, Fly.io, or a small VM). Set
+Use a persistent Node 22+ host (the included container uses Node 24; Railway,
+Render, Fly.io, or a small VM are suitable). Set
 `HOST=0.0.0.0`, keep `ALLOW_PRIVATE_TARGETS=false`, expose port 3000 through
 the host's HTTPS reverse proxy, and configure the platform health check as
 `GET /health`. Do not use a short-lived serverless function for the Miner:
 DNS and TCP/TLS operations need predictable execution time and a warm process.
 
-The hosted YAML must be stable and publicly readable. Before registration,
-replace `base_url` in `telegraph/miner.yaml` with the public HTTPS base URL,
-run `npm run validate:config`, and compute the SHA-256 hash of the exact bytes
-that will be hosted.
+The hosted YAML must be stable and publicly readable. The service exposes the
+exact tracked bytes at `GET /miner.yaml` for simple persistent deployments.
+Before registration, replace `base_url` in `telegraph/miner.yaml` with the
+public HTTPS base URL, run `npm run validate:config`, and compute the SHA-256
+hash of the exact bytes that will be hosted. The served bytes and the
+registration hash must match exactly.
 
 ## Registration safety
 

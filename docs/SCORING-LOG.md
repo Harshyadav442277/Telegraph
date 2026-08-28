@@ -16,5 +16,10 @@ On 2026-08-27, the live `/api/miners` endpoint exposed four active
 actual interpretation of these two displays must be established from live
 receipts after PREFLIGHT is registered.
 
+On 2026-08-28, the same live catalogue exposed four active Miners for epoch
+289 with raw per-Intent values of approximately `0.010148683`, `0.006346065`,
+`0.00448634`, and `0`. These are catalogue observations only; no normalized
+PREFLIGHT score, receipt, or Explorer ranking is claimed.
+
 Future experiments must change one output/config dimension at a time and add
 the corresponding request count and receipt evidence here.

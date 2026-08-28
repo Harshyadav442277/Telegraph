@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { extractDomain, extractDomainFromQuery } from '../telegraph/request.js';
 import { toTelegraphResponse } from '../telegraph/response.js';
 import { verifyTLS } from '../tls/verify.js';
@@ -22,6 +23,20 @@ function send(response: ServerResponse, status: number, body: unknown, id: strin
   response.setHeader('cache-control', 'no-store');
   response.setHeader('x-request-id', id);
   response.end(payload);
+}
+
+function sendText(
+  response: ServerResponse,
+  status: number,
+  body: string,
+  contentType: string,
+  id: string,
+): void {
+  response.statusCode = status;
+  response.setHeader('content-type', contentType);
+  response.setHeader('cache-control', 'no-store');
+  response.setHeader('x-request-id', id);
+  response.end(body);
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
@@ -55,6 +70,11 @@ export function createHttpServer(config: AppConfig): Server {
       }
       if (method === 'GET' && url.pathname === '/ready') {
         send(response, 200, { status: 'ready', service: 'preflight' }, id);
+        return;
+      }
+      if (method === 'GET' && url.pathname === '/miner.yaml') {
+        const yaml = await readFile(new URL('../../telegraph/miner.yaml', import.meta.url), 'utf8');
+        sendText(response, 200, yaml, 'application/yaml; charset=utf-8', id);
         return;
       }
       if (

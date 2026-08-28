@@ -71,15 +71,44 @@ for (const [index, endpointValue] of endpoints.entries()) {
 }
 const semantics = record(root.semantics, 'semantics');
 const supported = semantics.supported_intents;
-if (!Array.isArray(supported) || !supported.includes('SSL_VERIFICATION') || supported.length !== 1)
-  throw new Error('supported_intents must contain only SSL_VERIFICATION');
+if (!Array.isArray(supported) || supported.length === 0)
+  throw new Error('supported_intents must declare at least one intent');
+if (!supported.includes('SSL_VERIFICATION'))
+  throw new Error('supported_intents must include SSL_VERIFICATION, the primary intent');
+
+// Declaring an intent the miner cannot serve is worse than not declaring it:
+// the node routes traffic we would answer with an error. Every intent must
+// map to an endpoint that exists in this file.
+const INTENT_ENDPOINTS: Record<string, string> = {
+  SSL_VERIFICATION: '/ssl-check',
+  URL_SCAN: '/url-scan',
+  GAS_PRICE: '/gas-price',
+  WALLET_BALANCE_CHECK: '/wallet-balance',
+  ONCHAIN_TX_LOOKUP: '/tx-lookup',
+  TVL_LOOKUP: '/tvl',
+};
+const paths = new Set(
+  endpoints.map((endpointValue) => record(endpointValue, 'endpoint').path as string),
+);
+for (const intent of supported as string[]) {
+  const expected = INTENT_ENDPOINTS[intent];
+  if (!expected) throw new Error(`intent ${intent} has no endpoint mapping in this validator`);
+  if (!paths.has(expected))
+    throw new Error(`intent ${intent} is declared but endpoint ${expected} is missing`);
+}
+
+const mapping = record(semantics.signal_mapping, 'semantics.signal_mapping');
+for (const key of ['confidence_field', 'label_field', 'reason_field'])
+  if (typeof mapping[key] !== 'string')
+    throw new Error(`semantics.signal_mapping.${key} must be a string`);
+
 if (!root.input_schema || !root.output_schema)
   throw new Error('top-level input_schema and output_schema are required by PREFLIGHT');
 process.stdout.write(
   JSON.stringify({
     valid: true,
     file,
-    intent: 'SSL_VERIFICATION',
+    intents: supported,
     endpointCount: endpoints.length,
   }) + '\n',
 );

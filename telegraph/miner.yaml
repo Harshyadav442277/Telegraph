@@ -3,11 +3,16 @@ kind: miner
 id: 20260828
 slug: preflight-ssl-verification
 protocol: generic
-name: PREFLIGHT SSL Verification
+name: PREFLIGHT Infrastructure Signals
 description: >
-  Deterministic live TLS verification for autonomous infrastructure and agents.
-  Performs DNS resolution, a TLS 1.2/1.3 handshake with SNI, native chain
-  verification, hostname verification, and certificate time validation.
+  Deterministic infrastructure and on-chain signals for autonomous systems.
+  Live TLS verification performs DNS resolution, a TLS 1.2/1.3 handshake with
+  SNI, native chain verification, hostname verification and certificate time
+  validation. URL scanning reuses the same transport engine and adds redirect,
+  security-header and risk analysis. Gas price, wallet balance and transaction
+  lookup read directly from public JSON-RPC across Ethereum, Base, Arbitrum,
+  OP Mainnet and Polygon, with EIP-7702 delegated accounts reported correctly.
+  Total value locked is mirrored from DefiLlama.
 base_url: https://preflight-ssl-verification.vercel.app
 
 docs:
@@ -27,23 +32,104 @@ endpoints:
     external_path: /ssl-check
     method: GET
     description: Live TLS certificate verification for a hostname, HTTPS URL, or host:port.
+  - path: /url-scan
+    external_path: /url-scan
+    method: GET
+    description: >
+      Safety scan of a URL. Follows redirects, verifies TLS, inspects security
+      headers and reports a risk score with explicit findings.
+  - path: /gas-price
+    external_path: /gas-price
+    method: GET
+    description: >
+      Current gas price for an EVM chain, with EIP-1559 base fee, suggested
+      priority fee and the cost of a standard native transfer.
+  - path: /wallet-balance
+    external_path: /wallet-balance
+    method: GET
+    description: >
+      Native token balance for an EVM address, with nonce and account type
+      including EIP-7702 delegated accounts.
+  - path: /tx-lookup
+    external_path: /tx-lookup
+    method: GET
+    description: >
+      Status and effect of a transaction hash, with block, confirmations,
+      value, gas used and fee paid.
+  - path: /tvl
+    external_path: /tvl
+    method: GET
+    description: Total value locked for a DeFi protocol or chain, mirrored from DefiLlama.
 
 input_schema:
   type: object
-  required: [domain]
+  description: >
+    Each endpoint reads the one parameter it needs. Parameters are matched
+    tolerantly: a hostname, URL, address or transaction hash is also recovered
+    from a free-text question, so router-supplied phrasing still resolves.
   properties:
     domain:
       type: string
-      description: Hostname, HTTPS URL, or host:port to verify.
+      description: Hostname, HTTPS URL, or host:port to verify. Used by /ssl-check.
+    url:
+      type: string
+      description: Absolute URL to scan. Used by /url-scan.
+    chain:
+      type: string
+      description: >
+        EVM chain name or alias — ethereum, base, arbitrum, optimism, polygon,
+        base-sepolia. Defaults to ethereum. Used by the on-chain endpoints.
+    address:
+      type: string
+      description: 0x-prefixed EVM address. Used by /wallet-balance.
+    hash:
+      type: string
+      description: 0x-prefixed transaction hash. Used by /tx-lookup.
+    protocol:
+      type: string
+      description: DeFi protocol or chain name. Used by /tvl.
 
 output_schema:
   type: object
+  description: >
+    Every endpoint returns verdict, confidence and reason, so one signal
+    mapping covers all intents. The remaining fields are those of the endpoint
+    that was called.
   properties:
     chain_length: { type: [integer, 'null'] }
     domain: { type: string }
     verdict:
       type: string
-      enum: [valid, expired, not_yet_valid, hostname_mismatch, self_signed, untrusted, unreachable]
+      description: >
+        Primary decision. /ssl-check returns a certificate verdict, /url-scan a
+        safety verdict, /gas-price a congestion level, /wallet-balance funded
+        or empty, /tx-lookup a transaction status, /tvl the kind of subject
+        resolved.
+      enum:
+        [
+          valid,
+          expired,
+          not_yet_valid,
+          hostname_mismatch,
+          self_signed,
+          untrusted,
+          unreachable,
+          safe,
+          suspicious,
+          malicious,
+          low,
+          normal,
+          elevated,
+          high,
+          funded,
+          empty,
+          success,
+          failed,
+          pending,
+          not_found,
+          protocol,
+          chain,
+        ]
     valid: { type: boolean }
     chain_complete: { type: [boolean, 'null'] }
     trusted: { type: boolean }
@@ -62,6 +148,56 @@ output_schema:
     reason: { type: string }
     unreachable_reason: { type: string }
     checked_at: { type: string }
+    # /url-scan
+    url: { type: string }
+    final_url: { type: [string, 'null'] }
+    hostname: { type: string }
+    risk_score: { type: integer, minimum: 0, maximum: 100 }
+    reachable: { type: boolean }
+    http_status: { type: [integer, 'null'] }
+    redirect_count: { type: integer }
+    redirect_chain: { type: array }
+    findings: { type: array }
+    security_headers: { type: object }
+    tls_valid: { type: [boolean, 'null'] }
+    # on-chain endpoints
+    chain: { type: string }
+    chain_id: { type: integer }
+    block_number: { type: [integer, 'null'] }
+    # /gas-price
+    gas_price_wei: { type: string }
+    gas_price_gwei: { type: string }
+    base_fee_gwei: { type: [string, 'null'] }
+    priority_fee_gwei: { type: [string, 'null'] }
+    transfer_cost_native: { type: string }
+    level: { type: string }
+    # /wallet-balance
+    address: { type: string }
+    balance: { type: string }
+    balance_wei: { type: string }
+    symbol: { type: string }
+    transaction_count: { type: [integer, 'null'] }
+    account_type: { type: [string, 'null'] }
+    delegate_address: { type: [string, 'null'] }
+    funded: { type: boolean }
+    explorer_url: { type: string }
+    # /tx-lookup
+    hash: { type: string }
+    found: { type: boolean }
+    status: { type: string }
+    confirmations: { type: [integer, 'null'] }
+    from: { type: [string, 'null'] }
+    to: { type: [string, 'null'] }
+    value: { type: [string, 'null'] }
+    gas_used: { type: [string, 'null'] }
+    fee_native: { type: [string, 'null'] }
+    # /tvl
+    query: { type: string }
+    resolved_name: { type: [string, 'null'] }
+    kind: { type: string }
+    tvl_usd: { type: [number, 'null'] }
+    tvl_formatted: { type: [string, 'null'] }
+    source: { type: string }
 
 semantics:
   signal_mapping:
@@ -70,3 +206,8 @@ semantics:
     reason_field: reason
   supported_intents:
     - SSL_VERIFICATION
+    - URL_SCAN
+    - GAS_PRICE
+    - WALLET_BALANCE_CHECK
+    - ONCHAIN_TX_LOOKUP
+    - TVL_LOOKUP

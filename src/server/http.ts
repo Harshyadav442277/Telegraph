@@ -4,12 +4,91 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { extractDomain, extractDomainFromQuery } from '../telegraph/request.js';
+import {
+  findAddress,
+  findChain,
+  findSubject,
+  findTxHash,
+  findUrl,
+  valuesFromBody,
+  valuesFromQuery,
+  type RequestValues,
+} from '../telegraph/params.js';
 import { toTelegraphResponse } from '../telegraph/response.js';
 import { verifyTLS } from '../tls/verify.js';
+import type { TLSVerificationOptions } from '../tls/types.js';
+import { chainFromText, resolveChain } from '../chain/rpc.js';
+import { getGasPrice } from '../intents/gasPrice.js';
+import { getWalletBalance } from '../intents/walletBalance.js';
+import { lookupTransaction } from '../intents/onchainTx.js';
+import { scanUrl } from '../intents/urlScan.js';
+import { lookupTvl } from '../intents/tvl.js';
 import type { AppConfig } from './config.js';
 import { createLogger } from '../observability/logger.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
+
+interface IntentRoute {
+  intent: string;
+  handle(values: RequestValues, config: AppConfig): Promise<unknown>;
+}
+
+function tlsOptionsFrom(config: AppConfig): Partial<TLSVerificationOptions> {
+  return {
+    maxInputLength: config.maxInputLength,
+    requestTimeoutMs: config.requestTimeoutMs,
+    dnsTimeoutMs: config.dnsTimeoutMs,
+    connectTimeoutMs: config.connectTimeoutMs,
+    handshakeTimeoutMs: config.handshakeTimeoutMs,
+    allowPrivateTargets: config.allowPrivateTargets,
+  };
+}
+
+const INTENT_ROUTES: Record<string, IntentRoute> = {
+  '/gas-price': {
+    intent: 'GAS_PRICE',
+    handle: async (values) => {
+      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
+      return getGasPrice(chain);
+    },
+  },
+  '/wallet-balance': {
+    intent: 'WALLET_BALANCE_CHECK',
+    handle: async (values) => {
+      const address = findAddress(values);
+      if (!address)
+        throw new TypeError('missing required field: address (an 0x-prefixed EVM address)');
+      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
+      return getWalletBalance(address, chain);
+    },
+  },
+  '/tx-lookup': {
+    intent: 'ONCHAIN_TX_LOOKUP',
+    handle: async (values) => {
+      const hash = findTxHash(values);
+      if (!hash)
+        throw new TypeError('missing required field: hash (a 0x-prefixed transaction hash)');
+      const chain = resolveChain(findChain(values) ?? chainFromText(values.text())?.key);
+      return lookupTransaction(hash, chain);
+    },
+  },
+  '/url-scan': {
+    intent: 'URL_SCAN',
+    handle: async (values, config) => {
+      const target = findUrl(values);
+      if (!target) throw new TypeError('missing required field: url');
+      return scanUrl(target, tlsOptionsFrom(config));
+    },
+  },
+  '/tvl': {
+    intent: 'TVL_LOOKUP',
+    handle: async (values) => {
+      const subject = findSubject(values) ?? values.all()[0];
+      if (!subject) throw new TypeError('missing required field: protocol');
+      return lookupTvl(subject);
+    },
+  },
+};
 
 function requestId(request: IncomingMessage): string {
   const supplied = request.headers['x-request-id'];
@@ -99,10 +178,29 @@ export function createRequestHandler(config: AppConfig): RequestHandler {
         sendText(response, 200, yaml, 'application/yaml; charset=utf-8', id);
         return;
       }
-      if (
-        !['GET', 'POST'].includes(method) ||
-        !['/ssl-check', '/v1/ssl-check'].includes(url.pathname)
-      ) {
+      if (!['GET', 'POST'].includes(method)) {
+        send(response, 404, { error: 'not_found', code: 'NOT_FOUND', requestId: id }, id);
+        return;
+      }
+
+      const intentRoute = INTENT_ROUTES[url.pathname];
+      if (intentRoute) {
+        const values =
+          method === 'GET'
+            ? valuesFromQuery(url.searchParams)
+            : valuesFromBody(await readBody(request));
+        const payload = await intentRoute.handle(values, config);
+        log('intent_request', {
+          requestId: id,
+          intent: intentRoute.intent,
+          path: url.pathname,
+          latencyMs: Math.round(performance.now() - started),
+        });
+        send(response, 200, payload, id);
+        return;
+      }
+
+      if (!['/ssl-check', '/v1/ssl-check'].includes(url.pathname)) {
         send(response, 404, { error: 'not_found', code: 'NOT_FOUND', requestId: id }, id);
         return;
       }

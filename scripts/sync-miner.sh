@@ -21,7 +21,10 @@ RPC="${RPC:-https://sepolia.base.org}"
 YAML_FILE="${YAML_FILE:-telegraph/miner.yaml}"
 FEE_ADDRESS="${FEE_ADDRESS:-0x5c4B38CF6aDb8c5A30242c3FC9124CE0197D2d52}"
 MIN_PRICE="${MIN_PRICE:-10000}"
-REGISTRATION_ID="${REGISTRATION_ID:-282}"
+# updateMiner retires the old registration and issues a new id, so the current
+# id is state, not a constant. It is read from and written back to this file.
+REGISTRATION_FILE="${REGISTRATION_FILE:-telegraph/registration-id}"
+REGISTRATION_ID="${REGISTRATION_ID:-$(cat "$REGISTRATION_FILE" 2>/dev/null || true)}"
 NODE_API="${NODE_API:-https://devnode.telegraphprotocol.com}"
 MINER_KEY_FILE="${MINER_KEY_FILE:-$HOME/.preflight-miner-key}"
 
@@ -125,9 +128,34 @@ echo "  balance        $(cast from-wei "$BALANCE") ETH"
 [[ "$BALANCE" != "0" ]] || { echo "sender has no gas on Base Sepolia" >&2; exit 1; }
 
 step "Submitting"
+RECEIPT="$(mktemp)"
 cast send "$DIAMOND" "$FN" "${ARGS[@]}" \
-  --rpc-url "$RPC" --private-key "$MINER_PRIVATE_KEY" --json | tee /tmp/preflight-tx.json | \
-  python3 -c "import json,sys;d=json.load(sys.stdin);print('  tx',d.get('transactionHash'),'status',d.get('status'))"
+  --rpc-url "$RPC" --private-key "$MINER_PRIVATE_KEY" --json > "$RECEIPT"
+python3 -c "import json;d=json.load(open('$RECEIPT'));print('  tx',d.get('transactionHash'),'status',d.get('status'))"
+python3 -c "
+import json,sys
+d=json.load(open('$RECEIPT'))
+if d.get('status') not in ('0x1', 1): sys.exit('transaction reverted')
+"
+
+# MinerRegistered(registrationId indexed, miner indexed, ...) — emitted by both
+# registerMiner and updateMiner, and the only place the new id appears.
+NEW_ID="$(python3 -c "
+import json
+TOPIC='0x7305b0d0f2fed40b03fb6b42dfaa5d50920aa0312578b5ed482f1072942823a4'
+d=json.load(open('$RECEIPT'))
+for log in d.get('logs', []):
+    t=log.get('topics') or []
+    if t and t[0].lower()==TOPIC:
+        print(int(t[1],16)); break
+")"
+rm -f "$RECEIPT"
+if [[ -n "$NEW_ID" && "$NEW_ID" != "$REGISTRATION_ID" ]]; then
+  echo "  registration $REGISTRATION_ID retired, now $NEW_ID"
+  REGISTRATION_ID="$NEW_ID"
+  printf '%s\n' "$NEW_ID" > "$REGISTRATION_FILE"
+  echo "  wrote $REGISTRATION_FILE — commit it so the next sync targets the right registration"
+fi
 
 step "Verifying on-chain state"
 cast call "$DIAMOND" \

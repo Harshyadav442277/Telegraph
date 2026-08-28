@@ -242,6 +242,22 @@ is **1.00 hour**, range 0.08–23.5h, with epochs 282–289 running roughly ever
 genesis parameter, not this devnet's observed cadence. Scoring rounds arrive
 far more often than daily.
 
+## 2026-08-28 — Six intents live on-chain (registration 284)
+
+`updateMiner` does not mutate a registration in place: it retires the old id
+and issues a new one. Transaction
+`0xe7cc1e71f5b194b2f0778385fcec0abe6edfb21d7e2789043b3b58696a490479`
+(status 0x1) retired **282** and created **284**, which the receipt's
+`MinerRegistered` log carries as topic 1. `getMiner(282)` now returns
+`active = false`; `getMiner(284)` returns `active = true` with all six intents
+and the GitHub-pinned YAML URL at commit `ee9e826`.
+
+The node indexed it about 110 seconds later: `activation_status: active`,
+`rejection_reason: null`, all six intents listed.
+
+The registration id is therefore state rather than a constant, and is stored in
+`telegraph/registration-id` so the next sync targets the live registration.
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

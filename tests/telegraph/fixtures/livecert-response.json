@@ -1,0 +1,12 @@
+{
+  "domain": "example.com",
+  "verdict": "valid",
+  "valid": true,
+  "chain_complete": true,
+  "issuer": "SSL Corporation",
+  "valid_to": "2099-01-01",
+  "days_remaining": 26500,
+  "confidence": 1,
+  "reason": "fixture",
+  "checked_at": "2026-08-28T00:00:00.000Z"
+}

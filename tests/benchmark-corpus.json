@@ -1,0 +1,30 @@
+[
+  { "name": "example-valid", "input": "example.com", "expectedVerdict": "valid" },
+  {
+    "name": "example-url-and-trailing-dot",
+    "input": "https://EXAMPLE.COM./health",
+    "expectedVerdict": "valid"
+  },
+  { "name": "badssl-expired", "input": "expired.badssl.com", "expectedVerdict": "expired" },
+  {
+    "name": "badssl-wrong-host",
+    "input": "wrong.host.badssl.com",
+    "expectedVerdict": "hostname_mismatch"
+  },
+  {
+    "name": "badssl-self-signed",
+    "input": "self-signed.badssl.com",
+    "expectedVerdict": "self_signed"
+  },
+  {
+    "name": "badssl-untrusted-root",
+    "input": "untrusted-root.badssl.com",
+    "expectedVerdict": "untrusted"
+  },
+  {
+    "name": "nxdomain",
+    "input": "preflight-does-not-exist.invalid",
+    "expectedVerdict": "unreachable"
+  },
+  { "name": "malformed", "input": "http://example.com", "expectedVerdict": "unreachable" }
+]

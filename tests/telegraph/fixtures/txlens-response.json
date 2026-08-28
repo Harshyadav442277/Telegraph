@@ -1,0 +1,14 @@
+{
+  "query": "example.com",
+  "status": "ok",
+  "summary": "example.com has a valid certificate",
+  "confidence": 1,
+  "canonical": "ssl:example.com:valid:60",
+  "valid": true,
+  "authorized": true,
+  "authorization_error": null,
+  "issuer": "SSL Corporation",
+  "valid_from": "2026-07-29T22:10:08.000Z",
+  "valid_to": "2026-10-27T22:17:21.000Z",
+  "days_until_expiry": 60
+}

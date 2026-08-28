@@ -1,0 +1,85 @@
+import { readFile } from 'node:fs/promises';
+import { parse } from 'yaml';
+
+const file = process.argv[2] ?? 'telegraph/miner.yaml';
+const allowedEndpointKeys = new Set([
+  'path',
+  'external_path',
+  'method',
+  'description',
+  'endpoint_base_url',
+  'content_type',
+  'multipart_fields',
+  'param_map',
+]);
+const allowedRootKeys = new Set([
+  'version',
+  'kind',
+  'id',
+  'slug',
+  'protocol',
+  'name',
+  'description',
+  'base_url',
+  'docs',
+  'auth',
+  'rate_limit_per_sec',
+  'cache_ttl_sec',
+  'circuit_threshold',
+  'circuit_cooldown_seconds',
+  'limitations',
+  'errors',
+  'endpoints',
+  'input_schema',
+  'output_schema',
+  'semantics',
+  'on_chain',
+  'polling',
+]);
+
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error(`${label} must be an object`);
+  return value as Record<string, unknown>;
+}
+
+const raw = await readFile(file, 'utf8');
+const root = record(parse(raw), 'root');
+for (const key of Object.keys(root))
+  if (!allowedRootKeys.has(key)) throw new Error(`root has unsupported field: ${key}`);
+const required = ['version', 'kind', 'id', 'slug', 'name', 'base_url'];
+for (const key of required) if (!(key in root)) throw new Error(`missing required field: ${key}`);
+if (root.version !== '1') throw new Error('version must be "1"');
+if (root.kind !== 'miner') throw new Error('kind must be "miner"');
+if (typeof root.id !== 'number' || !Number.isInteger(root.id))
+  throw new Error('id must be an integer');
+if (typeof root.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(root.slug))
+  throw new Error('slug must be lowercase kebab-case');
+if (typeof root.base_url !== 'string' || !/^https?:\/\//.test(root.base_url))
+  throw new Error('base_url must start with http:// or https://');
+const endpoints = root.endpoints;
+if (!Array.isArray(endpoints) || endpoints.length === 0)
+  throw new Error('at least one endpoint is required');
+for (const [index, endpointValue] of endpoints.entries()) {
+  const endpoint = record(endpointValue, `endpoints[${index}]`);
+  for (const key of Object.keys(endpoint))
+    if (!allowedEndpointKeys.has(key))
+      throw new Error(`endpoints[${index}] has unsupported field: ${key}`);
+  for (const key of ['path', 'external_path', 'method'])
+    if (typeof endpoint[key] !== 'string')
+      throw new Error(`endpoints[${index}].${key} must be a string`);
+}
+const semantics = record(root.semantics, 'semantics');
+const supported = semantics.supported_intents;
+if (!Array.isArray(supported) || !supported.includes('SSL_VERIFICATION') || supported.length !== 1)
+  throw new Error('supported_intents must contain only SSL_VERIFICATION');
+if (!root.input_schema || !root.output_schema)
+  throw new Error('top-level input_schema and output_schema are required by PREFLIGHT');
+process.stdout.write(
+  JSON.stringify({
+    valid: true,
+    file,
+    intent: 'SSL_VERIFICATION',
+    endpointCount: endpoints.length,
+  }) + '\n',
+);

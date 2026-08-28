@@ -10,11 +10,49 @@
     }
   },
   "rewrites": [
-    { "source": "/health", "destination": "/api/index" },
-    { "source": "/healthz", "destination": "/api/index" },
-    { "source": "/ready", "destination": "/api/index" },
-    { "source": "/miner.yaml", "destination": "/api/index" },
-    { "source": "/ssl-check", "destination": "/api/index" },
-    { "source": "/v1/ssl-check", "destination": "/api/index" }
+    {
+      "source": "/health",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/healthz",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/ready",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/miner.yaml",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/ssl-check",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/v1/ssl-check",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/url-scan",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/gas-price",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/wallet-balance",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/tx-lookup",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/tvl",
+      "destination": "/api/index"
+    }
   ]
 }

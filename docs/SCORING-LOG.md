@@ -186,6 +186,62 @@ Verified in production after deploy:
 This is a robustness change, not a scoring trick: each case above returns the
 correct verdict for the host actually named in the request.
 
+## 2026-08-28 — Expanded to six intents
+
+Prizes go to the highest **total** normalised score across intents, and the
+best miner in each intent receives full points regardless of absolute score.
+Intents were therefore ranked by (miners >= 3, for prize eligibility) against
+current leaderboard maximum:
+
+| Intent | Miners | Max score | Served by |
+|---|---|---|---|
+| `URL_SCAN` | 7 | 0.000000 | `/url-scan` |
+| `GAS_PRICE` | 6 | 0.000000 | `/gas-price` |
+| `WALLET_BALANCE_CHECK` | 6 | 0.000129 | `/wallet-balance` |
+| `ONCHAIN_TX_LOOKUP` | 10 | 0.014475 | `/tx-lookup` |
+| `TVL_LOOKUP` | 7 | 0.017023 | `/tvl` |
+
+None requires an API key: the on-chain intents read public JSON-RPC across
+Ethereum, Base, Arbitrum, OP Mainnet and Polygon (two endpoints per chain),
+URL_SCAN reuses the existing TLS engine, and TVL_LOOKUP mirrors DefiLlama.
+
+All five confirmed canonical on-chain via `isCanonicalIntent`, so the update
+transaction cannot revert on an unrecognised intent.
+
+Verified live in production after deploy:
+
+| Endpoint | Result | reason length |
+|---|---|---|
+| `/ssl-check?domain=example.com` | `valid`, SSL Corporation | 429 |
+| `/url-scan?url=https://github.com` | `safe`, risk 0, HTTP 200 | 325 |
+| `/gas-price?chain=base` | 0.006 gwei, `low` | 349 |
+| `/wallet-balance?address=0xd8dA…6045` | 6.64217816 ETH, `delegated_eoa` | 422 |
+| `/tx-lookup?hash=0xaaa…` | `not_found` | 334 |
+| `/tvl?protocol=lido` | Lido, $23.52 billion | 321 |
+
+Every reason clears the ~150-character point at which the canonical length
+term saturates.
+
+Two correctness findings worth recording:
+
+- `eth_getCode` returns `0xef0100 || address` for EIP-7702 delegated
+  accounts. Both the operator wallet and `vitalik.eth` return it, so treating
+  any non-empty code as contract bytecode misclassifies ordinary smart-account
+  wallets. `account_type` now distinguishes `eoa`, `delegated_eoa` (with the
+  delegate address) and `contract`.
+- URL_SCAN originally reported `expired.badssl.com` as `unreachable`, because
+  `fetch()` refuses an invalid certificate. A completed TLS handshake now
+  counts as reachable, so the certificate failure surfaces as a `suspicious`
+  verdict instead of being masked.
+
+## Epoch cadence (measured, not documented)
+
+`/api/epochs` over the last 100 epochs: median gap between consecutive epochs
+is **1.00 hour**, range 0.08–23.5h, with epochs 282–289 running roughly every
+9 hours. The "Epoch duration: 24 hours" figure in the protocol docs is the
+genesis parameter, not this devnet's observed cadence. Scoring rounds arrive
+far more often than daily.
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

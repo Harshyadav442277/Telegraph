@@ -258,6 +258,40 @@ The node indexed it about 110 seconds later: `activation_status: active`,
 The registration id is therefore state rather than a constant, and is stored in
 `telegraph/registration-id` so the next sync targets the live registration.
 
+## 2026-08-29 — Seventh intent, ENS, and scan budget (registration 285)
+
+Read the official router descriptions from `/engine/v1/intents`, which state
+in the protocol's own words what each intent is classified on. Two acted on:
+
+- `WALLET_BALANCE_CHECK` — "names a specific blockchain address **or ENS
+  name**". PREFLIGHT accepted only 0x-prefixed addresses, so every ENS-phrased
+  question returned HTTP 400. Added EIP-137 namehash (verified against the
+  published vector for `eth`) with registry/resolver lookup over public
+  mainnet RPC. `vitalik.eth` resolves to `0xd8da6bf2…96045`, `nick.eth` to
+  `0xb8c2c29e…67d5`, and an unregistered name to null.
+- `CRYPTO_PRICE` — 10 miners, so prize-eligible, leaderboard maximum 0.0637.
+  Served keylessly from DefiLlama's coins feed.
+
+Rejected as expansion targets, with reasons: `CURRENCY_EXCHANGE` (leader at
+1.0), `CVE_LOOKUP` (leader at 0.997), `IP_GEOLOCATION` (2 miners, below the
+3-miner prize threshold), `TOKEN_HOLDER_COUNT` (needs a paid indexer).
+
+Also bounded URL_SCAN by a single 18s budget. Six redirect hops at the per-hop
+timeout could exceed the 30s serverless limit, and a function that times out
+answers nothing at all — the worst possible outcome for a scored miner.
+
+`updateMiner` rotated the registration again: **284 → 285**, now active with
+all seven intents. The rotation is why the id is stored in
+`telegraph/registration-id` rather than hardcoded.
+
+Live in production, every reason clearing the length threshold:
+
+| Endpoint | Result | reason length |
+|---|---|---|
+| `/crypto-price?asset=BTC` | BTC $77,507.68 | 355 |
+| `/wallet-balance?address=vitalik.eth` | resolved, funded | 437 |
+| `/url-scan?url=https://github.com` | safe, not truncated | 325 |
+
 ## PREFLIGHT entries
 
 _No PREFLIGHT scores yet — miner is not registered. Entries will be appended

@@ -158,9 +158,17 @@ if [[ -n "$NEW_ID" && "$NEW_ID" != "$REGISTRATION_ID" ]]; then
 fi
 
 step "Verifying on-chain state"
-cast call "$DIAMOND" \
-  "getMiner(uint256)(address,string,bytes32,bool,bytes32,address,uint256,string[])" \
-  "${REGISTRATION_ID:-0}" --rpc-url "$RPC" | head -8
+# The RPC can lag its own receipt by a second or two, returning an empty
+# record for a registration that was just created.
+for attempt in 1 2 3 4 5 6; do
+  STATE="$(cast call "$DIAMOND" \
+    "getMiner(uint256)(address,string,bytes32,bool,bytes32,address,uint256,string[])" \
+    "${REGISTRATION_ID:-0}" --rpc-url "$RPC" 2>/dev/null || true)"
+  [[ "$(printf '%s' "$STATE" | sed -n '4p')" == true ]] && break
+  echo "  attempt $attempt: not visible yet"
+  sleep 3
+done
+printf '%s\n' "$STATE" | head -8
 
 step "Waiting for the node to reload the manifest"
 for i in $(seq 1 24); do

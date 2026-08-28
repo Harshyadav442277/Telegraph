@@ -21,12 +21,12 @@ devnode JSON API is the reliable source and is what these entries use.
 
 Per-intent scores for every miner declaring `SSL_VERIFICATION`:
 
-| Rank | Miner | Slug | SSL score | Requests | Registered |
-|---|---|---|---|---|---|
-| 1 | LiveCert Operational Signals | `livecert` | 0.010148683 | 42 | 2026-08-28 |
-| 2 | TxLens | `txlens` | 0.006346065 | — | 2026-08-28 |
-| 3 | SSL Labs Check | `ssllabs` | 0.004486340 | 5 | 2026-08-13 |
-| 4 | Cert Spotter | `certspotter-cert-verification` | 0.000000000 | 12 | 2026-08-25 |
+| Rank | Miner                        | Slug                            | SSL score   | Requests | Registered |
+| ---- | ---------------------------- | ------------------------------- | ----------- | -------- | ---------- |
+| 1    | LiveCert Operational Signals | `livecert`                      | 0.010148683 | 42       | 2026-08-28 |
+| 2    | TxLens                       | `txlens`                        | 0.006346065 | —        | 2026-08-28 |
+| 3    | SSL Labs Check               | `ssllabs`                       | 0.004486340 | 5        | 2026-08-13 |
+| 4    | Cert Spotter                 | `certspotter-cert-verification` | 0.000000000 | 12       | 2026-08-25 |
 
 Scored at 2026-08-28T12:48:38Z, epoch 289.
 
@@ -83,7 +83,7 @@ scoring contract.
 ## Judging context (hackathon rules, read 2026-08-28)
 
 - Track 1 (Miners) runs **Aug 17 – Aug 31**.
-- 75% of the Track 1 score is Normalized Performance *within the intent*:
+- 75% of the Track 1 score is Normalized Performance _within the intent_:
   your average canonical score divided by the highest average in that intent.
   **The best miner in an intent automatically receives full points.**
 - 25% is engagement and updates posted on X, tagging @Telegraphprotoc.
@@ -110,18 +110,18 @@ hosted-vs-local hash verified identical before registration.
 
 ## 2026-08-28 — PREFLIGHT registered on Telegraph
 
-| Field | Value |
-|---|---|
-| Registration ID | `282` |
-| Transaction | `0xf3a301103ebdad9d…0aa907d1` |
-| Network | Base Sepolia (84532) |
-| Contract | `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8` |
-| Owner / fee address | `0x5c4B38CF6aDb8c5A30242c3FC9124CE0197D2d52` |
-| YAML URL | `https://gateway.pinata.cloud/ipfs/QmWyAPYsRtUTYvjNUeaV5z8g2zM3Zt6Eurz67KHmovgZT7` |
-| YAML hash | `0x837d3536e53485c95845c714bb492922695f3ac3c378d9314de8a4551444fd83` |
-| intentId | `0x2d477ac0d0ee8ac9ca1c2b8875817aa819d626807936ab32aca7445436d4ea8f` |
-| Min price | `10000` (0.01 USDC) |
-| Intents | `["SSL_VERIFICATION"]` |
+| Field               | Value                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| Registration ID     | `282`                                                                              |
+| Transaction         | `0xf3a301103ebdad9d…0aa907d1`                                                      |
+| Network             | Base Sepolia (84532)                                                               |
+| Contract            | `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8`                                       |
+| Owner / fee address | `0x5c4B38CF6aDb8c5A30242c3FC9124CE0197D2d52`                                       |
+| YAML URL            | `https://gateway.pinata.cloud/ipfs/QmWyAPYsRtUTYvjNUeaV5z8g2zM3Zt6Eurz67KHmovgZT7` |
+| YAML hash           | `0x837d3536e53485c95845c714bb492922695f3ac3c378d9314de8a4551444fd83`               |
+| intentId            | `0x2d477ac0d0ee8ac9ca1c2b8875817aa819d626807936ab32aca7445436d4ea8f`               |
+| Min price           | `10000` (0.01 USDC)                                                                |
+| Intents             | `["SSL_VERIFICATION"]`                                                             |
 
 Verified independently rather than trusting the portal:
 
@@ -152,7 +152,7 @@ Read from `/daemon/api/questions` (50 most recent, all `status: success`):
   `collector-gdelt`) and carry categories PHARMA, TECHNOLOGY, AI, FINANCE,
   GEOPOLITICS.
 - Routing went to `Telegraph Groq LPU Miner` (38), `Telegraph Knowledge
-  Chatbot` (5), `Community Memory` (4), `ItsAI Text Detector` (3).
+Chatbot` (5), `Community Memory` (4), `ItsAI Text Detector` (3).
 - **No SSL_VERIFICATION questions appeared in the sample.**
 
 This matches the network-wide split recorded above: the eight intents with
@@ -176,11 +176,11 @@ parameter names, and pulls a hostname, IPv4 or URL out of a sentence.
 
 Verified in production after deploy:
 
-| Request | Result |
-|---|---|
-| `?domain=example.com` | `valid`, SSL Corporation |
-| `?query=Is the SSL certificate for github.com valid right now?` | `github.com`, `valid`, Sectigo |
-| `?website=cloudflare.com` | `cloudflare.com`, `valid` |
+| Request                                                           | Result                          |
+| ----------------------------------------------------------------- | ------------------------------- |
+| `?domain=example.com`                                             | `valid`, SSL Corporation        |
+| `?query=Is the SSL certificate for github.com valid right now?`   | `github.com`, `valid`, Sectigo  |
+| `?website=cloudflare.com`                                         | `cloudflare.com`, `valid`       |
 | POST `{"question":"check whether expired.badssl.com is expired"}` | `expired.badssl.com`, `expired` |
 
 This is a robustness change, not a scoring trick: each case above returns the
@@ -193,13 +193,13 @@ best miner in each intent receives full points regardless of absolute score.
 Intents were therefore ranked by (miners >= 3, for prize eligibility) against
 current leaderboard maximum:
 
-| Intent | Miners | Max score | Served by |
-|---|---|---|---|
-| `URL_SCAN` | 7 | 0.000000 | `/url-scan` |
-| `GAS_PRICE` | 6 | 0.000000 | `/gas-price` |
-| `WALLET_BALANCE_CHECK` | 6 | 0.000129 | `/wallet-balance` |
-| `ONCHAIN_TX_LOOKUP` | 10 | 0.014475 | `/tx-lookup` |
-| `TVL_LOOKUP` | 7 | 0.017023 | `/tvl` |
+| Intent                 | Miners | Max score | Served by         |
+| ---------------------- | ------ | --------- | ----------------- |
+| `URL_SCAN`             | 7      | 0.000000  | `/url-scan`       |
+| `GAS_PRICE`            | 6      | 0.000000  | `/gas-price`      |
+| `WALLET_BALANCE_CHECK` | 6      | 0.000129  | `/wallet-balance` |
+| `ONCHAIN_TX_LOOKUP`    | 10     | 0.014475  | `/tx-lookup`      |
+| `TVL_LOOKUP`           | 7      | 0.017023  | `/tvl`            |
 
 None requires an API key: the on-chain intents read public JSON-RPC across
 Ethereum, Base, Arbitrum, OP Mainnet and Polygon (two endpoints per chain),
@@ -210,14 +210,14 @@ transaction cannot revert on an unrecognised intent.
 
 Verified live in production after deploy:
 
-| Endpoint | Result | reason length |
-|---|---|---|
-| `/ssl-check?domain=example.com` | `valid`, SSL Corporation | 429 |
-| `/url-scan?url=https://github.com` | `safe`, risk 0, HTTP 200 | 325 |
-| `/gas-price?chain=base` | 0.006 gwei, `low` | 349 |
-| `/wallet-balance?address=0xd8dA…6045` | 6.64217816 ETH, `delegated_eoa` | 422 |
-| `/tx-lookup?hash=0xaaa…` | `not_found` | 334 |
-| `/tvl?protocol=lido` | Lido, $23.52 billion | 321 |
+| Endpoint                              | Result                          | reason length |
+| ------------------------------------- | ------------------------------- | ------------- |
+| `/ssl-check?domain=example.com`       | `valid`, SSL Corporation        | 429           |
+| `/url-scan?url=https://github.com`    | `safe`, risk 0, HTTP 200        | 325           |
+| `/gas-price?chain=base`               | 0.006 gwei, `low`               | 349           |
+| `/wallet-balance?address=0xd8dA…6045` | 6.64217816 ETH, `delegated_eoa` | 422           |
+| `/tx-lookup?hash=0xaaa…`              | `not_found`                     | 334           |
+| `/tvl?protocol=lido`                  | Lido, $23.52 billion            | 321           |
 
 Every reason clears the ~150-character point at which the canonical length
 term saturates.
@@ -286,11 +286,11 @@ all seven intents. The rotation is why the id is stored in
 
 Live in production, every reason clearing the length threshold:
 
-| Endpoint | Result | reason length |
-|---|---|---|
-| `/crypto-price?asset=BTC` | BTC $77,507.68 | 355 |
-| `/wallet-balance?address=vitalik.eth` | resolved, funded | 437 |
-| `/url-scan?url=https://github.com` | safe, not truncated | 325 |
+| Endpoint                              | Result              | reason length |
+| ------------------------------------- | ------------------- | ------------- |
+| `/crypto-price?asset=BTC`             | BTC $77,507.68      | 355           |
+| `/wallet-balance?address=vitalik.eth` | resolved, funded    | 437           |
+| `/url-scan?url=https://github.com`    | safe, not truncated | 325           |
 
 ## 2026-08-29 — Production correctness sweep (registration 286)
 
